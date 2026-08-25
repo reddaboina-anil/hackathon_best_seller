@@ -1,0 +1,17 @@
+# Secrets and local env
+.env
+credentials/
+*.json
+!tests/evals/datasets/*.jsonl
+
+# Python
+.venv/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+tests/evals/results/
