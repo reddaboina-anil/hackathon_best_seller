@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Data Seller Insights — Performance Labels (clickable mockup)</title>
+<style>
+:root{
+ --ink:#0B0B0C;--ink2:#1E2024;--grey:#5F6368;--mut:#8A9099;--line:#E3E6EA;--line2:#F1F3F5;
+ --green:#00A05A;--greenPillBg:#DFF6E9;--greenPillTx:#0A6B3C;--navGreen:#3CD98A;--mint:#CFF7E1;
+ --redBg:#FDE7E9;--redTx:#B3261E;--redBar:#E0392B;
+ --amberBg:#FDF0CE;--amberTx:#8A5B06;
+ --blueBg:#DCE9FE;--blueTx:#1D4ED8;
+ --violetBg:#EBE6FE;--violetTx:#5B25C9;
+ --tealBg:#CFF6EF;--tealTx:#0D6E63;
+ --greyBg:#EEF0F2;--greyTx:#3C4043;
+ --indigo:#4B3FD1;--indigoBg:#EEEBFF;--sand:#F7F8FA;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{font-family:Carlito,"DejaVu Sans",system-ui,sans-serif;color:var(--ink);background:#fff;display:flex;min-height:100vh;}
+.icn{font-family:"DejaVu Sans",sans-serif;}
+button{font-family:inherit;cursor:pointer;}
+:focus-visible{outline:2px solid var(--indigo);outline-offset:2px;}
+
+/* ---------------- NAV ---------------- */
+.nav{width:250px;flex:0 0 250px;background:#000;color:#fff;padding-bottom:8px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow:auto;}
+.nav .logo{display:flex;align-items:center;gap:9px;padding:18px 16px 12px;}
+.nav .logo b{font-size:18px;}
+.slash{font-weight:700;font-size:16px;letter-spacing:-1px;}
+.pnl{margin-left:auto;width:14px;height:14px;border:2px solid #fff;border-radius:3px;opacity:.85;}
+.build{margin:2px 16px 14px;display:flex;}
+.build .a{flex:1;background:#5BE49B;color:#04331E;font-weight:700;font-size:14px;padding:9px;text-align:center;border-radius:5px 0 0 5px;}
+.build .b{background:#5BE49B;color:#04331E;padding:9px 8px;border-radius:0 5px 5px 0;border-left:1px solid rgba(0,0,0,.18);font-size:10px;}
+.acct{display:flex;align-items:center;gap:9px;padding:7px 16px;font-size:14px;font-weight:600;}
+.acct .sq{width:21px;height:21px;background:#2B2D31;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px;}
+.nsub{padding:6px 16px 6px 46px;font-size:13px;color:#D6D8DB;}
+.nsub.hl{background:#2A2C30;}
+.grp{display:flex;align-items:center;gap:11px;padding:10px 16px;font-size:14.5px;font-weight:600;}
+.grp .gi{width:19px;text-align:center;font-size:13px;opacity:.9;}
+.grp.green{color:var(--navGreen);}
+.grp .car{margin-left:auto;font-size:8px;opacity:.7;}
+.tagn{background:#3A3D42;color:#fff;font-size:9.5px;font-weight:700;border-radius:3px;padding:1px 5px;margin-left:auto;}
+.item{padding:6px 16px 6px 46px;font-size:13px;color:#E7E8EA;display:flex;align-items:center;}
+.item.active{background:var(--mint);color:#03301C;font-weight:600;}
+.item .tagn{background:#000;color:#fff;}
+.item.active .tagn{background:#0B3A24;}
+.nfoot{margin-top:auto;background:#2A2C30;display:flex;align-items:center;gap:11px;padding:13px 16px;font-size:14.5px;font-weight:600;}
+
+/* ---------------- SHELL ---------------- */
+main{flex:1;min-width:0;padding:24px 30px 60px;}
+.topbar{display:flex;align-items:flex-start;}
+h1{font-size:35px;margin:0;letter-spacing:-.6px;font-weight:700;}
+.lede{color:#5F6368;font-size:14px;margin:7px 0 0;}
+.topicons{margin-left:auto;display:flex;gap:16px;align-items:center;color:#3C4043;font-size:16px;padding-top:6px;}
+.bell{position:relative;}
+.bell .n{position:absolute;top:-7px;right:-8px;background:#E0392B;color:#fff;font-size:9px;font-weight:700;border-radius:9px;padding:1px 4px;}
+.tabs{display:flex;gap:26px;border-bottom:1px solid var(--line);margin:22px 0 0;}
+.tabbtn{background:none;border:0;padding:11px 2px;font-size:14.5px;color:#5F6368;position:relative;}
+.tabbtn[aria-selected="true"]{color:var(--ink);font-weight:700;box-shadow:inset 0 -3px 0 var(--green);}
+.panelwrap{background:var(--sand);border:1px solid var(--line);border-radius:6px;margin-top:18px;padding:20px 22px 24px;}
+h2{font-size:20px;margin:0 0 14px;font-weight:700;}
+.hide{display:none !important;}
+
+/* ---------------- LABEL SUMMARY TILES ---------------- */
+.tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:2px 0 18px;}
+.tile{text-align:left;background:#fff;border:1.4px solid var(--line);border-radius:8px;padding:11px 12px;}
+.tile:hover{border-color:#B9BDC4;}
+.tile[aria-pressed="true"]{border-color:var(--indigo);box-shadow:0 0 0 2px var(--indigoBg);}
+.tile .n{font-size:22px;font-weight:700;letter-spacing:-.5px;}
+.tile .l{font-size:11.5px;color:var(--grey);margin-top:2px;line-height:1.3;}
+.tile.warn .n{color:var(--redTx);}
+
+/* ---------------- CONTROLS ---------------- */
+.ctrls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+.srch{display:flex;align-items:center;gap:8px;border:1px solid #C9CDD3;border-radius:5px;height:38px;padding:0 11px;background:#fff;width:300px;}
+.srch input{border:0;outline:0;font-size:13.5px;width:100%;background:transparent;}
+select{height:38px;border:1px solid #C9CDD3;border-radius:5px;padding:0 9px;font-size:13.5px;background:#fff;color:#3C4043;}
+.csv{margin-left:auto;background:#5BE49B;color:#04331E;font-weight:700;border:0;border-radius:5px;height:38px;padding:0 18px;font-size:13.5px;}
+.hint{font-size:12px;color:var(--mut);margin:0 0 12px;}
+
+/* ---------------- TABLE ---------------- */
+.tbl{width:100%;border-collapse:collapse;background:#fff;}
+.tbl th{text-align:left;font-size:12px;font-weight:700;padding:11px 10px;border-bottom:1.5px solid #C9CDD3;line-height:1.25;color:#202124;background:#fff;}
+.tbl td{padding:11px 10px;border-bottom:1px solid var(--line2);font-size:13px;vertical-align:middle;}
+.tbl tbody tr{cursor:pointer;}
+.tbl tbody tr:hover{background:#F4FBF7;}
+.tbl tbody tr.sel{background:#EAF9F1;box-shadow:inset 3px 0 0 var(--green);}
+.nm{color:#111;}
+.nm .pre{color:#6B7280;}
+.num{text-align:right;font-variant-numeric:tabular-nums;}
+.tblwrap{background:#fff;border:1px solid var(--line);border-radius:6px;overflow:hidden;}
+.empty{padding:26px;text-align:center;color:var(--mut);font-size:13.5px;}
+
+/* ---------------- BADGES ---------------- */
+.bdg{display:inline-flex;align-items:center;gap:4px;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700;white-space:nowrap;margin:2px 4px 2px 0;}
+.bdg .i{font-size:10px;}
+.b-best{background:var(--amberBg);color:var(--amberTx);}
+.b-spend{background:var(--greenPillBg);color:var(--greenPillTx);}
+.b-imp{background:var(--blueBg);color:var(--blueTx);}
+.b-multi{background:var(--violetBg);color:var(--violetTx);}
+.b-rise{background:var(--tealBg);color:var(--tealTx);}
+.b-rep{background:#E7F0FF;color:#1B4F9C;}
+.b-warn{background:var(--redBg);color:var(--redTx);}
+.b-neutral{background:var(--greyBg);color:var(--greyTx);}
+.b-ghost{background:#fff;color:var(--mut);border:1px dashed #CDD2D8;font-weight:600;}
+
+/* ---------------- PERFORMANCE ---------------- */
+.h3{font-size:17px;font-weight:700;margin:4px 0 12px;}
+.chcards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;}
+.chcard{background:#fff;border:1px solid var(--line);border-left:5px solid var(--green);border-radius:6px;padding:15px 17px;}
+.chcard.bad{border-left-color:var(--redBar);}
+.chcard.flat{border-left-color:#9AA0A6;}
+.chcard .hd{display:flex;align-items:center;}
+.chcard .hd b{font-size:17px;}
+.pill{border-radius:4px;padding:3px 10px;font-size:12px;font-weight:600;margin-left:auto;}
+.p-ok{background:var(--greenPillBg);color:var(--greenPillTx);}
+.p-bad{background:var(--redBg);color:var(--redTx);}
+.p-flat{background:var(--greyBg);color:var(--greyTx);}
+.chcard .big{font-size:19px;font-weight:600;margin:12px 0 6px;}
+.chcard .sm{font-size:12.5px;color:var(--grey);display:flex;align-items:center;gap:6px;}
+.chcard .lblrow{margin-top:11px;padding-top:11px;border-top:1px solid var(--line2);}
+
+.filters{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px;}
+.fgroup{border:1px solid #C9CDD3;border-radius:5px;padding:5px 10px;background:#fff;min-height:38px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+.fgroup .lab{font-size:11px;color:var(--mut);}
+.tok{background:var(--greyBg);border-radius:13px;font-size:12px;padding:2px 9px;display:inline-flex;gap:6px;align-items:center;}
+.tok .x{color:#80868B;font-size:10px;}
+
+.pfgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.pf{text-align:left;background:#fff;border:1px solid var(--line);border-left:5px solid var(--green);border-radius:6px;padding:14px 16px;}
+.pf.bad{border-left-color:var(--redBar);}
+.pf.flat{border-left-color:#9AA0A6;}
+.pf:hover{box-shadow:0 3px 12px rgba(16,24,40,.10);}
+.pf[aria-expanded="true"]{border-color:var(--green);box-shadow:0 0 0 2px var(--greenPillBg);}
+.pf .hd{display:flex;align-items:center;gap:9px;}
+.pf .hd .ic{width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;}
+.pf .hd b{font-size:15px;}
+.pf .cnt{font-size:17px;font-weight:600;margin:11px 0 5px;}
+.pf .sm{font-size:12px;color:var(--grey);}
+.pf .lblrow{margin-top:10px;padding-top:9px;border-top:1px solid var(--line2);}
+.pf .open{font-size:11.5px;color:var(--indigo);font-weight:700;margin-top:9px;}
+
+.drill{background:#fff;border:1px solid var(--line);border-radius:6px;margin:16px 0 20px;padding:18px 20px 20px;}
+.drill .dh{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.drill .dh b{font-size:19px;}
+.closebtn{margin-left:auto;background:none;border:1px solid var(--line);border-radius:5px;padding:5px 11px;font-size:12px;color:var(--grey);}
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0 14px;}
+.chip{border:1.3px solid var(--line);background:#fff;border-radius:15px;padding:5px 12px;font-size:12.5px;color:#3C4043;}
+.chip[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:#fff;font-weight:600;}
+.chip.warn[aria-pressed="true"]{border-color:var(--redTx);background:var(--redTx);}
+
+/* ---------------- DRAWER ---------------- */
+.scrim{position:fixed;inset:0;background:rgba(11,11,12,.34);opacity:0;pointer-events:none;transition:opacity .18s;z-index:40;}
+.scrim.on{opacity:1;pointer-events:auto;}
+.drawer{position:fixed;top:0;right:0;height:100vh;width:520px;max-width:94vw;background:#fff;box-shadow:-8px 0 34px rgba(16,24,40,.18);transform:translateX(102%);transition:transform .22s ease;z-index:50;overflow:auto;padding:22px 24px 40px;}
+.drawer.on{transform:none;}
+.drawer .kick{font-size:11px;letter-spacing:.9px;text-transform:uppercase;color:var(--mut);font-weight:700;}
+.drawer h3{font-size:18px;margin:6px 0 10px;line-height:1.35;}
+.drawer .xbtn{position:absolute;top:18px;right:20px;background:none;border:0;font-size:17px;color:var(--grey);}
+.kpi3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0 4px;}
+.kpi{border:1px solid var(--line);border-radius:7px;padding:10px 11px;}
+.kpi .l{font-size:11px;color:var(--grey);}
+.kpi .v{font-size:20px;font-weight:700;margin-top:3px;letter-spacing:-.4px;}
+h5.sec{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--grey);margin:20px 0 9px;}
+.funnel{display:flex;flex-direction:column;gap:7px;}
+.fstep{display:flex;align-items:center;gap:10px;font-size:12.5px;}
+.fstep .bar{height:22px;border-radius:4px;background:var(--greenPillBg);display:flex;align-items:center;padding:0 8px;font-weight:700;color:var(--greenPillTx);font-size:11.5px;}
+.fstep .drop{font-size:11.5px;color:var(--redTx);font-weight:700;}
+.earn{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line2);align-items:flex-start;}
+.earn .tx{font-size:12px;color:var(--grey);line-height:1.5;}
+.earn .tx b{color:var(--ink2);}
+.rowline{display:flex;justify-content:space-between;font-size:12.5px;padding:8px 0;border-bottom:1px solid var(--line2);}
+.rowline .mut{color:var(--mut);}
+.act{background:var(--indigoBg);border:1px solid #D6CEFB;border-radius:8px;padding:12px 14px;font-size:12.5px;color:#3B2FB5;line-height:1.55;margin-top:16px;}
+.act b{display:block;margin-bottom:4px;}
+.note{background:var(--sand);border:1px solid var(--line);border-radius:8px;padding:11px 13px;font-size:11.5px;color:var(--grey);line-height:1.55;margin-top:14px;}
+.demo{position:fixed;left:262px;bottom:14px;background:var(--ink);color:#fff;font-size:11.5px;border-radius:16px;padding:7px 14px;z-index:30;opacity:.92;}
+.demo b{color:var(--navGreen);}
+@media (max-width:1500px){.tiles{grid-template-columns:repeat(3,1fr);}.pfgrid{grid-template-columns:repeat(2,1fr);}}
+</style>
+</head>
+<body>
+
+<aside class="nav">
+  <div class="logo"><span class="slash">/L</span><b>LiveRamp</b><span class="pnl"></span></div>
+  <div class="build"><div class="a">Build Segment</div><div class="b icn">▾</div></div>
+  <div class="acct"><span class="sq">1</span>123Push<span class="icn" style="margin-left:auto;font-size:8px">▾</span></div>
+  <div class="nsub hl">Open in Admin</div>
+  <div class="grp"><span class="gi icn">✦</span>LiveRamp AI<span class="tagn">Beta</span></div>
+  <div class="grp"><span class="gi icn">⌕</span>Search</div>
+  <div class="grp"><span class="gi icn">▦</span>Dashboard</div>
+  <div class="grp"><span class="gi icn">⇩</span>Data In<span class="car icn">▴</span></div>
+  <div class="item">All Data Sources<span class="tagn">New</span></div>
+  <div class="item">Upload File</div><div class="item">Files</div>
+  <div class="grp green"><span class="gi icn">▤</span>Marketplace<span class="car icn">▴</span></div>
+  <div class="item">Platform Settings</div><div class="item">Manage Partnerships</div>
+  <div class="item">Sell Data</div><div class="item">Storefront</div><div class="item">Buy Data</div>
+  <div class="item active">Data Seller Insights<span class="tagn">New</span></div>
+  <div class="item">Seller Listings</div>
+  <div class="grp"><span class="gi icn">▩</span>Data Management<span class="car icn">▴</span></div>
+  <div class="item">Datasets (Audiences)<span class="tagn">New</span></div>
+  <div class="item">Segments<span class="tagn">New</span></div>
+  <div class="item">Tables &amp; Views<span class="tagn">New</span></div>
+  <div class="grp"><span class="gi icn">⇗</span>Data Out<span class="car icn">▴</span></div>
+  <div class="item">Destination Accounts</div><div class="item">New Destination Account</div>
+  <div class="nfoot"><span class="gi icn">⚙</span>Administration<span class="car icn">▴</span></div>
+</aside>
+
+<main>
+  <div class="topbar">
+    <div>
+      <h1>Data Seller Insights</h1>
+      <p class="lede">View your Marketplace segment metrics and performance to improve your strategy</p>
+    </div>
+    <div class="topicons"><span class="bell icn">🔔<span class="n">51</span></span><span class="icn">?</span><span class="icn">👤</span></div>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button class="tabbtn" id="tab-ov" role="tab" aria-selected="true" onclick="setTab('ov')">Overview</button>
+    <button class="tabbtn" id="tab-pf" role="tab" aria-selected="false" onclick="setTab('pf')">Performance</button>
+  </div>
+
+  <!-- ================= OVERVIEW ================= -->
+  <section id="pane-ov" class="panelwrap">
+    <h2>Segments Snapshot</h2>
+    <p class="hint">Labels below are earned from delivered Marketplace usage over the last 90 days and recomputed weekly. The four demand labels are the same ones buyers see on your listings. The two attention labels are private to you.</p>
+
+    <div class="tiles" id="tiles"></div>
+
+    <div class="ctrls">
+      <label class="srch"><span class="icn">⌕</span><input id="q" placeholder="Search Segment Name" oninput="renderOverview()"></label>
+      <select id="lblFilter" onchange="renderOverview()">
+        <option value="">All labels</option>
+        <option value="best">Best seller</option>
+        <option value="spend">Top campaign spend</option>
+        <option value="imp">Most impressions</option>
+        <option value="multi">Multi-platform</option>
+        <option value="rise">Rising</option>
+        <option value="rep">Repeat buyers</option>
+        <option value="warn">Needs attention</option>
+        <option value="none">No labels yet</option>
+      </select>
+      <select id="sortOv" onchange="renderOverview()">
+        <option value="rank">Sort: Revenue rank</option>
+        <option value="rev">Sort: Revenue</option>
+        <option value="buyers">Sort: Buyers with revenue</option>
+      </select>
+      <button class="csv" onclick="toast('CSV export would include every label and its earned date')">Download CSV</button>
+    </div>
+
+    <div class="tblwrap">
+      <table class="tbl">
+        <thead><tr>
+          <th style="width:27%">Segment Name</th>
+          <th>DMS Segment ID</th><th>Segment Type</th>
+          <th class="num">Revenue<br>Rank</th><th class="num">Revenue</th>
+          <th class="num">Buyers Who<br>Requested</th><th class="num">Buyers<br>Distributing</th><th class="num">Buyers w/<br>Revenue</th>
+          <th style="width:20%">Performance Labels</th>
+        </tr></thead>
+        <tbody id="ovBody"></tbody>
+      </table>
+      <div id="ovEmpty" class="empty hide">No segments match those filters.</div>
+    </div>
+  </section>
+
+  <!-- ================= PERFORMANCE ================= -->
+  <section id="pane-pf" class="panelwrap hide">
+    <div class="h3">Channel Performance over Last Reported Month</div>
+    <div class="chcards" id="chcards"></div>
+
+    <div class="h3">Performance by Platform</div>
+    <div class="filters">
+      <div class="fgroup"><span class="lab">Categories</span>
+        <span class="tok">Custom <span class="x icn">✕</span></span>
+        <span class="tok">Health &amp; Wellness <span class="x icn">✕</span></span>
+        <span class="tok">+451 more</span></div>
+      <div class="fgroup"><span class="lab">Destinations</span>
+        <span class="tok">Amazon <span class="x icn">✕</span></span>
+        <span class="tok">Facebook <span class="x icn">✕</span></span>
+        <span class="tok">+6 more</span></div>
+      <select id="sortPf" onchange="renderPlatforms()" style="margin-left:auto">
+        <option value="rev">Sort: Revenue</option>
+        <option value="segs">Sort: Active segments</option>
+        <option value="growth">Sort: Growth</option>
+      </select>
+    </div>
+
+    <div class="pfgrid" id="pfgrid"></div>
+    <div id="drillHost"></div>
+  </section>
+</main>
+
+<div class="scrim" id="scrim" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer" aria-label="Segment label detail">
+  <button class="xbtn icn" onclick="closeDrawer()">✕</button>
+  <div id="drawerBody"></div>
+</aside>
+<div class="demo">Clickable mockup — <b>switch tabs</b>, filter by label, click a platform card, click any row</div>
+
+<script>
+/* ---------------- LABEL DEFINITIONS ---------------- */
+const LBL={
+ best :{t:'Best seller',        c:'b-best',  i:'★', kind:'demand', crit:'Top 10% of your catalogue and of its category cohort by Marketplace revenue over 90 days, with 5 or more buyers.'},
+ spend:{t:'Top campaign spend', c:'b-spend', i:'$', kind:'demand', crit:'Top 10% by media spend running against the segment — buyers are putting real budget behind it, not just testing it.'},
+ imp  :{t:'Most impressions',   c:'b-imp',   i:'◤', kind:'demand', crit:'Top 10% by delivered impressions in its cohort. High delivery relative to reach means the segment matches well at the destination.'},
+ multi:{t:'Multi-platform',     c:'b-multi', i:'◈', kind:'demand', crit:'Delivered impressions on 3 or more destinations in the window.'},
+ rise :{t:'Rising',             c:'b-rise',  i:'▲', kind:'demand', crit:'Revenue up 40% or more versus the prior 90 days, above the minimum volume floor.'},
+ rep  :{t:'Repeat buyers',      c:'b-rep',   i:'↻', kind:'demand', crit:'60% or more of buyers active in one month were active again the next.'},
+ dorm :{t:'Dormant',            c:'b-warn',  i:'!', kind:'warn',   crit:'No revenue on any destination for 12 months. Marketplace policy allows distribution to be paused at this point.'},
+ nodel:{t:'Distributed, not delivering', c:'b-warn', i:'!', kind:'warn', crit:'Live distribution with no impressions for 60 days. Usually a mapping, eligibility or pricing-field fault worth fixing.'},
+ leak :{t:'Requested, not distributed',  c:'b-warn', i:'!', kind:'warn', crit:'Buyers requested the segment but never set up distribution. The most recoverable revenue in your catalogue.'},
+ conc :{t:'Single-buyer concentration',  c:'b-neutral', i:'◑', kind:'warn', crit:'One buyer accounts for more than 80% of revenue. Useful to know before you plan pricing.'}
+};
+const bdg=k=>`<span class="bdg ${LBL[k].c}"><span class="i icn">${LBL[k].i}</span>${LBL[k].t}</span>`;
+
+/* ---------------- OVERVIEW DATA ---------------- */
+const SEG=[
+ {n:'123Push > Consumer > Health and Wellness > Dry Eyes',id:1005020009,t:'Syndicated',rank:1,rev:48210,req:34,dist:29,wrev:26,l:['best','spend','multi','rep'],
+  d:['Facebook','The Trade Desk','StackAdapt','Nativo','Mountain','Jun Group'],imp:'612M',growth:-5.0},
+ {n:'123Push > Optimized for CTV > Consumer > Health and Wellness > Dry Eyes',id:1009011121,t:'Syndicated',rank:2,rev:41880,req:28,dist:24,wrev:21,l:['best','imp','multi'],
+  d:['Facebook','StackAdapt','Mountain'],imp:'548M',growth:-5.0},
+ {n:'123Push > Consumer > Purchase Based > Dog Food and Supplies',id:1005463569,t:'Syndicated',rank:3,rev:33740,req:41,dist:33,wrev:30,l:['best','rep','multi','rise'],
+  d:['Facebook','Beeswax','StackAdapt','Amazon'],imp:'497M',growth:31.8},
+ {n:'123Push > Optimized for CTV > Purchase Intent > In Market Auto Intenders > Subaru Outback',id:1009017651,t:'Syndicated',rank:4,rev:26550,req:19,dist:16,wrev:14,l:['rise','spend'],
+  d:['Facebook','TikTok'],imp:'288M',growth:50.6},
+ {n:'123Push > Consumer > Lifestyle Triggers > New Pet Owners Of A Cat',id:1009352151,t:'Syndicated',rank:5,rev:22190,req:26,dist:22,wrev:18,l:['multi','rep'],
+  d:['Facebook','The Trade Desk','Yahoo!','StackAdapt','MadHive','Mountain'],imp:'243M',growth:-1.8},
+ {n:'123Push > Consumer > Interest > Food and Drink > Recipes and Cooking',id:1004905799,t:'Syndicated',rank:6,rev:18420,req:31,dist:24,wrev:19,l:['rise','multi'],
+  d:['Facebook','The Trade Desk','Spotify','Jun Group','StackAdapt'],imp:'201M',growth:42.0},
+ {n:'123Push > Instant Intent > CTV Streaming App > fuboTV Users',id:1009134111,t:'Custom (Private)',rank:7,rev:12060,req:9,dist:7,wrev:5,l:['conc'],
+  d:['Facebook','Adobe Ad Cloud','Teads'],imp:'96M',growth:0},
+ {n:'123Push > Consumer > Demographic > Household Income > 100k to 150k',id:1004881201,t:'Syndicated',rank:8,rev:9930,req:52,dist:38,wrev:12,l:['leak'],
+  d:['The Trade Desk','StackAdapt'],imp:'88M',growth:4.1},
+ {n:'123Push > Optimized for CTV > Consumer > Auto > Truck Owners',id:1009024411,t:'Syndicated',rank:9,rev:2140,req:14,dist:11,wrev:2,l:['nodel'],
+  d:['Mountain'],imp:'3M',growth:-62.0},
+ {n:'123Push > Consumer > Interest > Winter Sports > Snowboarding',id:1004770311,t:'Syndicated',rank:10,rev:0,req:6,dist:4,wrev:0,l:['dorm'],
+  d:['—'],imp:'0',growth:0},
+ {n:'123Push > Consumer > B2B > Firmographic > SMB Decision Makers',id:1009551021,t:'Custom (Private)',rank:11,rev:7420,req:11,dist:9,wrev:7,l:[],
+  d:['LinkedIn','The Trade Desk'],imp:'54M',growth:8.2},
+ {n:'123Push > Consumer > Purchase Based > Baby and Toddler Products',id:1005441199,t:'Syndicated',rank:12,rev:5110,req:17,dist:13,wrev:9,l:['rise'],
+  d:['Facebook','Amazon','Simpli.fi'],imp:'61M',growth:44.5}
+];
+
+/* ---------------- PLATFORM DATA ---------------- */
+const PLAT=[
+ {k:'amazon',n:'Amazon',ic:'a',bg:'FF9900',st:'Optimal',cls:'',segs:113,rev:'$41.2K',g:'Faster Growth',best:4,warn:1},
+ {k:'facebook',n:'Facebook',ic:'f',bg:'1877F2',st:'Lagging',cls:'bad',segs:265,rev:'$96.7K',g:'Slower Growth',best:7,warn:3},
+ {k:'mountain',n:'Mountain',ic:'M',bg:'0F7B6C',st:'Stalled',cls:'bad',segs:1437,rev:'$28.4K',g:'Slower Growth',best:2,warn:9},
+ {k:'publica',n:'Publica',ic:'P',bg:'6B4EE6',st:'Optimal',cls:'',segs:95,rev:'$19.8K',g:'Faster Growth',best:3,warn:0},
+ {k:'simplifi',n:'Simpli.fi',ic:'S',bg:'E8562A',st:'Optimal',cls:'',segs:1653,rev:'$52.3K',g:'Faster Growth',best:5,warn:4},
+ {k:'spotify',n:'Spotify',ic:'♫',bg:'1DB954',st:'Optimal',cls:'',segs:542,rev:'$33.1K',g:'Faster Growth',best:3,warn:1},
+ {k:'stackadapt',n:'StackAdapt',ic:'s',bg:'2B6CF6',st:'Lagging',cls:'bad',segs:3568,rev:'$74.9K',g:'Slower Growth',best:6,warn:7},
+ {k:'ttd',n:'The Trade Desk',ic:'T',bg:'0099E5',st:'Stable',cls:'flat',segs:7128,rev:'$118.5K',g:'Slower Growth',best:9,warn:12}
+];
+const DRILL={
+ facebook:[
+  {n:'123Push > Consumer > Health and Wellness > Dry Eyes',id:1005020009,rev:'$4,036',g:-5.0,imp:'118M',d:'Facebook, The Trade Desk, Jun Group, StackAdapt, Nativo, Mountain',l:['best','spend','multi','rep']},
+  {n:'123Push > Optimized for CTV > Consumer > Health and Wellness > Dry Eyes',id:1009011121,rev:'$4,036',g:-5.0,imp:'104M',d:'Facebook, StackAdapt, Mountain',l:['best','imp','multi']},
+  {n:'123Push > Instant Intent > CTV Streaming App > fuboTV Users',id:1009134111,rev:'$1,122',g:null,imp:'31M',d:'Facebook, Adobe Ad Cloud (formerly Tube Mogul), Teads',l:['conc']},
+  {n:'123Push > Optimized for CTV > Purchase Intent > In Market Auto Intenders > Subaru Outback',id:1009017651,rev:'$958',g:50.6,imp:'26M',d:'Facebook, TikTok',l:['rise','spend']},
+  {n:'123Push > Consumer > Purchase Based > Dog Food and Supplies',id:1005463569,rev:'$747',g:31.8,imp:'22M',d:'Facebook, Beeswax, StackAdapt, Amazon',l:['best','rise','rep','multi']},
+  {n:'123Push > Consumer > Lifestyle Triggers > New Pet Owners Of A Cat',id:1009352151,rev:'$744',g:-1.8,imp:'19M',d:'Facebook, The Trade Desk, Yahoo!, StackAdapt, MadHive, Mountain',l:['multi','rep']},
+  {n:'123Push > Consumer > Interest > Food and Drink > Recipes and Cooking',id:1004905799,rev:'$609',g:42.0,imp:'17M',d:'Facebook, The Trade Desk, Spotify, Jun Group, StackAdapt',l:['rise','multi']},
+  {n:'123Push > Consumer > Purchase Based > Baby and Toddler Products',id:1005441199,rev:'$311',g:44.5,imp:'9M',d:'Facebook, Amazon, Simpli.fi',l:['rise']},
+  {n:'123Push > Optimized for CTV > Consumer > Auto > Truck Owners',id:1009024411,rev:'$0',g:-100,imp:'0',d:'Facebook (distributed 74 days ago)',l:['nodel']},
+  {n:'123Push > Consumer > Demographic > Household Income > 100k to 150k',id:1004881201,rev:'$0',g:null,imp:'0',d:'Requested by 12 buyers on Facebook · none distributing',l:['leak']}
+ ]
+};
+DRILL.default=DRILL.facebook;
+
+/* ---------------- STATE ---------------- */
+let tileFilter='', openPlat=null, chipFilter=new Set();
+
+/* ---------------- TABS ---------------- */
+function setTab(t){
+  document.getElementById('tab-ov').setAttribute('aria-selected',t==='ov');
+  document.getElementById('tab-pf').setAttribute('aria-selected',t==='pf');
+  document.getElementById('pane-ov').classList.toggle('hide',t!=='ov');
+  document.getElementById('pane-pf').classList.toggle('hide',t!=='pf');
+}
+
+/* ---------------- TILES ---------------- */
+const TILES=[
+ {k:'best', label:'Best sellers'},
+ {k:'spend',label:'Top campaign spend'},
+ {k:'multi',label:'Multi-platform'},
+ {k:'rise', label:'Rising'},
+ {k:'warn', label:'Need attention', warn:true},
+ {k:'none', label:'No labels yet'}
+];
+function count(k){
+  if(k==='warn') return SEG.filter(s=>s.l.some(x=>LBL[x].kind==='warn')).length;
+  if(k==='none') return SEG.filter(s=>!s.l.length).length;
+  return SEG.filter(s=>s.l.includes(k)).length;
+}
+function renderTiles(){
+  document.getElementById('tiles').innerHTML=TILES.map(t=>
+   `<button class="tile ${t.warn?'warn':''}" aria-pressed="${tileFilter===t.k}" onclick="tapTile('${t.k}')">
+      <div class="n">${count(t.k)}</div><div class="l">${t.label}</div></button>`).join('');
+}
+function tapTile(k){
+  tileFilter = tileFilter===k?'':k;
+  document.getElementById('lblFilter').value = tileFilter;
+  renderTiles(); renderOverview();
+}
+
+/* ---------------- OVERVIEW TABLE ---------------- */
+function renderOverview(){
+  const q=(document.getElementById('q').value||'').toLowerCase();
+  const f=document.getElementById('lblFilter').value;
+  tileFilter=f; renderTiles();
+  let rows=SEG.filter(s=>s.n.toLowerCase().includes(q)||String(s.id).includes(q));
+  if(f==='warn') rows=rows.filter(s=>s.l.some(x=>LBL[x].kind==='warn'));
+  else if(f==='none') rows=rows.filter(s=>!s.l.length);
+  else if(f) rows=rows.filter(s=>s.l.includes(f));
+  const sort=document.getElementById('sortOv').value;
+  rows=[...rows].sort((a,b)=> sort==='rev'? b.rev-a.rev : sort==='buyers'? b.wrev-a.wrev : a.rank-b.rank);
+
+  document.getElementById('ovEmpty').classList.toggle('hide',rows.length>0);
+  document.getElementById('ovBody').innerHTML=rows.map(s=>`
+   <tr onclick="openDrawer(${s.id})">
+     <td class="nm">${s.n.replace(/^(.*?>)/,'<span class="pre">$1</span>')}</td>
+     <td>${s.id}</td><td>${s.t}</td>
+     <td class="num">${s.rank}</td>
+     <td class="num">$${s.rev.toLocaleString()}</td>
+     <td class="num">${s.req}</td><td class="num">${s.dist}</td><td class="num">${s.wrev}</td>
+     <td>${s.l.length? s.l.map(bdg).join('') : '<span class="bdg b-ghost">Not enough usage yet</span>'}</td>
+   </tr>`).join('');
+}
+
+/* ---------------- PERFORMANCE ---------------- */
+function renderChannels(){
+  const ch=[
+   {n:'Programmatic',st:'Strong',cls:'',pill:'p-ok',segs:'10,153 Active Segments',sm:'No Change Compared to Last Month',best:18,warn:14},
+   {n:'Social',st:'Lagging',cls:'bad',pill:'p-bad',segs:'294 Active Segments',sm:'Slower Growth Compared to Last Month',best:7,warn:4},
+   {n:'TV',st:'Lagging',cls:'bad',pill:'p-bad',segs:'1,808 Active Segments',sm:'Faster Growth Compared to Last Month',best:5,warn:11}
+  ];
+  document.getElementById('chcards').innerHTML=ch.map(c=>`
+   <div class="chcard ${c.cls}">
+     <div class="hd"><b>${c.n}</b><span class="pill ${c.pill}">${c.st}</span></div>
+     <div class="big">${c.segs}</div>
+     <div class="sm"><span class="icn">↗</span>${c.sm}</div>
+     <div class="lblrow">${bdg('best').replace(LBL.best.t,c.best+' best sellers')}
+       <span class="bdg b-warn"><span class="i icn">!</span>${c.warn} need attention</span></div>
+   </div>`).join('');
+}
+
+function renderPlatforms(){
+  const sort=document.getElementById('sortPf').value;
+  const list=[...PLAT].sort((a,b)=>
+    sort==='segs'? b.segs-a.segs
+    : sort==='growth'? (a.g<b.g?1:-1)
+    : parseFloat(b.rev.replace(/[$K,]/g,''))-parseFloat(a.rev.replace(/[$K,]/g,'')));
+  document.getElementById('pfgrid').innerHTML=list.map(p=>`
+   <button class="pf ${p.cls}" aria-expanded="${openPlat===p.k}" onclick="togglePlat('${p.k}')">
+     <div class="hd"><span class="ic" style="background:#${p.bg}">${p.ic}</span><b>${p.n}</b>
+       <span class="pill ${p.st==='Lagging'||p.st==='Stalled'?'p-bad':(p.st==='Stable'?'p-flat':'p-ok')}">${p.st}</span></div>
+     <div class="cnt">${p.segs.toLocaleString()} Active Segments</div>
+     <div class="sm">${p.rev} last reported month · ${p.g}</div>
+     <div class="lblrow">
+       <span class="bdg b-best"><span class="i icn">★</span>${p.best} best sellers</span>
+       ${p.warn?`<span class="bdg b-warn"><span class="i icn">!</span>${p.warn} need attention</span>`:''}
+     </div>
+     <div class="open">${openPlat===p.k?'Hide segments ▴':'View segment labels ▾'}</div>
+   </button>`).join('');
+  renderDrill();
+}
+function togglePlat(k){ openPlat = openPlat===k?null:k; chipFilter.clear(); renderPlatforms();
+  if(openPlat) setTimeout(()=>document.getElementById('drillHost').scrollIntoView({behavior:'smooth',block:'center'}),60); }
+
+function toggleChip(k){ chipFilter.has(k)?chipFilter.delete(k):chipFilter.add(k); renderDrill(); }
+
+function renderDrill(){
+  const host=document.getElementById('drillHost');
+  if(!openPlat){ host.innerHTML=''; return; }
+  const p=PLAT.find(x=>x.k===openPlat);
+  const data=DRILL[openPlat]||DRILL.default;
+  let rows=data;
+  if(chipFilter.size) rows=rows.filter(r=>r.l.some(x=>chipFilter.has(x)||(chipFilter.has('warn')&&LBL[x].kind==='warn')));
+  const chipKeys=['best','spend','imp','multi','rise','rep','warn'];
+  host.innerHTML=`
+   <div class="drill">
+     <div class="dh"><span class="ic" style="width:24px;height:24px;border-radius:5px;background:#${p.bg};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">${p.ic}</span>
+       <b>${p.n}</b><span class="pill ${p.st==='Lagging'||p.st==='Stalled'?'p-bad':(p.st==='Stable'?'p-flat':'p-ok')}">${p.st}</span>
+       <button class="closebtn" onclick="togglePlat('${p.k}')">Close</button></div>
+     <p class="hint">Your segments on ${p.n}, with the labels each one has earned on this destination. Labels are destination-specific — a segment can be a best seller here and dormant elsewhere.</p>
+     <div class="chips">
+       ${chipKeys.map(k=>`<button class="chip ${k==='warn'?'warn':''}" aria-pressed="${chipFilter.has(k)}" onclick="toggleChip('${k}')">${k==='warn'?'Needs attention':LBL[k].t}</button>`).join('')}
+       ${chipFilter.size?`<button class="chip" onclick="chipFilter.clear();renderDrill()">Clear</button>`:''}
+     </div>
+     <div class="tblwrap"><table class="tbl">
+       <thead><tr><th style="width:30%">Segment Name</th><th>Segment ID</th><th class="num">Prior Month<br>Revenue</th>
+       <th class="num">Growth From<br>Prior Month</th><th class="num">Impressions</th><th style="width:19%">Labels</th><th style="width:18%">Destinations</th></tr></thead>
+       <tbody>${rows.map(r=>`
+         <tr onclick="openDrawer(${r.id})">
+           <td class="nm">${r.n.replace(/^(.*?>)/,'<span class="pre">$1</span>')}</td>
+           <td>${r.id}</td><td class="num">${r.rev}</td>
+           <td class="num" style="color:${r.g===null?'#8A9099':(r.g>0?'#0A6B3C':'#B3261E')}">${r.g===null?'—':(r.g>0?'+':'')+r.g.toFixed(1)+'%'}</td>
+           <td class="num">${r.imp}</td>
+           <td>${r.l.length?r.l.map(bdg).join(''):'<span class="bdg b-ghost">None yet</span>'}</td>
+           <td style="font-size:12px;color:#5F6368">${r.d}</td>
+         </tr>`).join('')}</tbody>
+     </table>
+     ${rows.length?'':'<div class="empty">No segments with those labels on this destination.</div>'}</div>
+   </div>`;
+}
+
+/* ---------------- DRAWER ---------------- */
+function openDrawer(id){
+  const s=SEG.find(x=>x.id===id) || (()=>{const r=DRILL.facebook.find(x=>x.id===id);
+     return r?{n:r.n,id:r.id,rev:parseInt(r.rev.replace(/[$,]/g,''))||0,req:'—',dist:'—',wrev:'—',l:r.l,d:r.d.split(', '),imp:r.imp,rank:'—',t:'Syndicated'}:null;})();
+  if(!s) return;
+  const demand=s.l.filter(k=>LBL[k].kind==='demand'), warn=s.l.filter(k=>LBL[k].kind==='warn');
+  const notEarned=['best','spend','imp','multi','rise','rep'].filter(k=>!s.l.includes(k)).slice(0,2);
+  const req=typeof s.req==='number'?s.req:0, dist=typeof s.dist==='number'?s.dist:0, wrev=typeof s.wrev==='number'?s.wrev:0;
+  const w=n=>Math.max(14,Math.round((n/Math.max(req,1))*100));
+  document.getElementById('drawerBody').innerHTML=`
+    <div class="kick">Segment labels · DMS ID ${s.id}</div>
+    <h3>${s.n}</h3>
+    <div>${s.l.length?s.l.map(bdg).join(''):'<span class="bdg b-ghost">No labels earned yet</span>'}</div>
+    <div class="kpi3">
+      <div class="kpi"><div class="l">Revenue (90d)</div><div class="v">$${(s.rev||0).toLocaleString()}</div></div>
+      <div class="kpi"><div class="l">Impressions</div><div class="v">${s.imp}</div></div>
+      <div class="kpi"><div class="l">Destinations live</div><div class="v">${s.d[0]==='—'?0:s.d.length}</div></div>
+    </div>
+    ${typeof s.req==='number'?`
+    <h5 class="sec">Buyer funnel</h5>
+    <div class="funnel">
+      <div class="fstep"><div class="bar" style="width:${w(req)}%">${req}</div><span>Requested</span></div>
+      <div class="fstep"><div class="bar" style="width:${w(dist)}%">${dist}</div><span>Distributing</span>
+        ${req-dist>0?`<span class="drop">−${req-dist} dropped</span>`:''}</div>
+      <div class="fstep"><div class="bar" style="width:${w(wrev)}%">${wrev}</div><span>Generating revenue</span>
+        ${dist-wrev>0?`<span class="drop">−${dist-wrev} not delivering</span>`:''}</div>
+    </div>`:''}
+    <h5 class="sec">Labels earned</h5>
+    ${demand.length?demand.map(k=>`<div class="earn">${bdg(k)}<div class="tx">${LBL[k].crit}</div></div>`).join(''):'<div class="tx" style="font-size:12px;color:#8A9099">None yet — this segment has not cleared a demand threshold in its cohort.</div>'}
+    ${warn.length?`<h5 class="sec">Private to you</h5>`+warn.map(k=>`<div class="earn">${bdg(k)}<div class="tx">${LBL[k].crit}</div></div>`).join(''):''}
+    ${notEarned.length?`<h5 class="sec">Not earned</h5>`+notEarned.map(k=>
+      `<div class="earn"><span class="bdg ${LBL[k].c}" style="opacity:.42"><span class="i icn">${LBL[k].i}</span>${LBL[k].t}</span>
+        <div class="tx" style="color:#9AA0A6">${LBL[k].crit}</div></div>`).join(''):''}
+    <h5 class="sec">Evidence</h5>
+    <div class="rowline"><span>Attribution confidence</span><b>${s.l.includes('nodel')||s.l.includes('dorm')?'—':'High'}</b></div>
+    <div class="rowline"><span>Usage directly attributed</span><b>${s.l.includes('dorm')?'n/a':'74% of impressions'}</b></div>
+    <div class="rowline"><span>Labels last recomputed</span><span>Aug 15, 2026</span></div>
+    <div class="rowline"><span>Reporting window</span><span>May 18 – Aug 15, 2026</span></div>
+    ${warn.length?`<div class="act"><b>Suggested action</b>${
+      s.l.includes('leak')?'52 buyers requested this segment; 14 never set up distribution and 26 more are distributing without delivering. Check that the required pricing field is populated for their destinations, then ask your LiveRamp contact to follow up with the accounts.'
+      :s.l.includes('nodel')?'Distributed 74 days ago with no impressions. Most often a missing pricing field or an eligibility restriction at the destination.'
+      :s.l.includes('dorm')?'No revenue for 12 months. Consider repricing, renaming for discoverability, or retiring the listing before distribution is paused.'
+      :'One buyer drives most of this revenue. Worth diversifying before you reprice.'}</div>`:''}
+    <div class="note">Buyers see only the demand labels above, aggregated across at least five buyers. They never see your revenue, your buyer names or the private labels in this panel.</div>`;
+  document.getElementById('drawer').classList.add('on');
+  document.getElementById('scrim').classList.add('on');
+}
+function closeDrawer(){ document.getElementById('drawer').classList.remove('on'); document.getElementById('scrim').classList.remove('on'); }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDrawer(); });
+function toast(m){ const d=document.querySelector('.demo'); const o=d.innerHTML; d.innerHTML=m; setTimeout(()=>d.innerHTML=o,2600); }
+
+renderTiles(); renderOverview(); renderChannels(); renderPlatforms();
+</script>
+</body>
+</html>
