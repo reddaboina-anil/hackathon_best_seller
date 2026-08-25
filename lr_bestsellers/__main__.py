@@ -20,7 +20,7 @@ from qdrant_client import QdrantClient
 
 from lr_bestsellers.config import Settings, get_settings
 from lr_bestsellers.exceptions import IngestionError
-from lr_bestsellers.ingestion.bq_fetcher import BigQueryIngestionSource
+from lr_bestsellers.ingestion.bq_fetcher import BigQueryIngestionSource, PlatformNamesSource
 from lr_bestsellers.ingestion.csv_catalog import (
     DEFAULT_CATALOG_CSV,
     CsvCatalogIngestionSource,
@@ -34,7 +34,7 @@ from lr_bestsellers.utils.logging import configure_logging
 
 log = structlog.get_logger(__name__)
 
-SourceName = Literal["files", "bq", "glossary", "csv", "all"]
+SourceName = Literal["files", "bq", "glossary", "csv", "platform_names", "all"]
 
 
 def repo_root() -> Path:
@@ -70,18 +70,30 @@ def _build_parser() -> argparse.ArgumentParser:
     refresh.add_argument(
         "--source",
         dest="source",
-        choices=("files", "bq", "glossary", "csv", "all"),
+        choices=("files", "bq", "glossary", "csv", "platform_names", "all"),
         default="all",
         help=(
             "Which ingestion source to run. "
             "'all' includes files + glossary + bq (not csv). "
-            "'csv' reads a local BigQuery export and is not run by 'all'."
+            "'csv' reads a local BigQuery export and is not run by 'all'. "
+            "'platform_names' upserts canonical platform names from BQ."
         ),
     )
     refresh.add_argument(
         "--reset",
         action="store_true",
         help="Wipe and recreate Qdrant collections before ingest",
+    )
+    refresh.add_argument(
+        "--skip-rows",
+        dest="skip_rows",
+        type=int,
+        default=0,
+        help=(
+            "For --source csv: skip the first N data rows before embedding. "
+            "Use this to resume an interrupted ingestion run without re-processing "
+            "rows that are already in Qdrant."
+        ),
     )
     refresh.add_argument(
         "--verbose",
@@ -129,11 +141,14 @@ def build_sources(
     source: SourceName,
     only_file: str | None,
     root: Path,
+    skip_rows: int = 0,
 ) -> list[IngestionSourceProtocol]:
     """Instantiate the requested ingestion sources.
 
     ``csv`` is **not** included in ``all``: running a million-row embedding by
     accident would be disruptive. Use ``--source csv`` explicitly.
+    ``platform_names`` is also **not** included in ``all``; use it explicitly
+    after a data refresh to keep the BM25 platform resolver in sync.
 
     Args:
         settings: Application settings.
@@ -141,6 +156,8 @@ def build_sources(
         only_file: For ``files``: single markdown file. For ``csv``: CSV path
             override (defaults to ``DEFAULT_CATALOG_CSV`` in ``root``).
         root: Repository root (cwd when invoked via ``uv run``).
+        skip_rows: For ``csv``: number of data rows to skip before embedding,
+            used to resume an interrupted run.
 
     Returns:
         Concrete sources to run.
@@ -153,7 +170,14 @@ def build_sources(
         csv_path = (
             Path(only_file) if only_file else root / DEFAULT_CATALOG_CSV
         )
-        selected.append(CsvCatalogIngestionSource(csv_path))
+        selected.append(CsvCatalogIngestionSource(csv_path, skip_rows=skip_rows))
+        return selected
+
+    if source == "platform_names":
+        from lr_bestsellers.agent.nodes import load_bestsellers_pipeline  # noqa: PLC0415
+
+        pipeline_sql = load_bestsellers_pipeline(root / "best_sellers.sql")
+        selected.append(PlatformNamesSource(settings, pipeline_sql))
         return selected
 
     want_files = source in ("files", "all") or (
@@ -188,6 +212,7 @@ def run_refresh(
     store: QdrantRepository | None = None,
     embedder: EmbedderProtocol | None = None,
     root: Path | None = None,
+    skip_rows: int = 0,
 ) -> int:
     """Run ingestion for the selected sources.
 
@@ -199,6 +224,7 @@ def run_refresh(
         store: Injected store (tests).
         embedder: Injected embedder (tests).
         root: Repository root override (tests).
+        skip_rows: For ``csv`` source: data rows to skip before embedding.
 
     Returns:
         Total points upserted.
@@ -213,7 +239,9 @@ def run_refresh(
     else:
         repository.ensure_collections()
     active_embedder = embedder or _make_embedder(settings)
-    sources = build_sources(settings, source=source, only_file=only_file, root=root_path)
+    sources = build_sources(
+        settings, source=source, only_file=only_file, root=root_path, skip_rows=skip_rows
+    )
     total = 0
     for item in sources:
         count = embed_and_upsert(item, active_embedder, repository)
@@ -243,12 +271,20 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as exc:
         log.error("refresh.settings_failed", error=str(exc))
         return 2
+    # Re-configure with file logging now that settings are available.
+    configure_logging(
+        log_level,
+        log_file=settings.log_file,
+        log_max_bytes=settings.log_max_bytes,
+        log_backup_count=settings.log_backup_count,
+    )
     try:
         run_refresh(
             settings,
             source=args.source,
             only_file=args.file,
             reset=args.reset,
+            skip_rows=args.skip_rows,
         )
     except IngestionError as exc:
         log.error("refresh.failed", error=str(exc))

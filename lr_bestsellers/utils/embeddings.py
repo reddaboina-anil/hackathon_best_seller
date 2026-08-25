@@ -93,6 +93,8 @@ def _is_transient_embed_error(exc: BaseException) -> bool:
         "timed out",
         "503",
         "429",
+        "nodename nor servname",      # macOS ENONAME (errno 8)
+        "name or service not known",  # Linux DNS resolution failure
     )
     while current is not None:
         if isinstance(current, ConnectionResetError | TimeoutError | ConnectionError):

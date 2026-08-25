@@ -52,7 +52,8 @@ class SegmentIntelligenceCallbackHandler(BaseCallbackHandler):
             **kwargs: Extra callback fields.
         """
         del inputs, parent_run_id, tags, metadata, kwargs
-        name = serialized.get("name") or serialized.get("id") or "chain"
+        safe = serialized or {}
+        name = safe.get("name") or safe.get("id") or "chain"
         log.info("hook.chain_start", name=str(name), run_id=str(run_id))
         self._metrics.incr("chain.start")
 

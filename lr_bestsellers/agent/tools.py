@@ -158,11 +158,12 @@ class BigQueryRunner:
         Raises:
             SQLGenerationError: When the job fails.
         """
+        log.info("bq.execute", sql=request.sql)
         try:
             query_job = self._client.query(request.sql)
             raw_rows = list(getattr(query_job, "result")())
         except Exception as exc:
-            log.error("bq.execute_failed", error=str(exc))
+            log.error("bq.execute_failed", error=str(exc), sql=request.sql)
             raise SQLGenerationError("BigQuery execution failed") from exc
         results: list[SqlRow] = []
         for raw in raw_rows:

@@ -29,11 +29,14 @@ SPARSE_VECTOR_NAME: Final[str] = "sparse"
 COLLECTION_SEGMENT_CATALOG: Final[str] = "segment_catalog"
 COLLECTION_DOMAIN_KNOWLEDGE: Final[str] = "domain_knowledge"
 COLLECTION_GLOSSARY: Final[str] = "glossary"
+COLLECTION_PLATFORM_NAMES: Final[str] = "platform_names"
+"""Sparse-only collection of canonical platform name strings seeded from BQ."""
 
-COLLECTIONS: Final[tuple[str, str, str]] = (
+COLLECTIONS: Final[tuple[str, str, str, str]] = (
     COLLECTION_SEGMENT_CATALOG,
     COLLECTION_DOMAIN_KNOWLEDGE,
     COLLECTION_GLOSSARY,
+    COLLECTION_PLATFORM_NAMES,
 )
 
 

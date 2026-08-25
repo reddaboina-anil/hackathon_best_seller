@@ -249,12 +249,24 @@ uv run python -m lr_bestsellers refresh --source glossary
 uv run python -m lr_bestsellers refresh --source bq          # live BigQuery query (slower)
 uv run python -m lr_bestsellers refresh --source csv         # local export (faster, see below)
 
+# Seed canonical platform names for the platform resolver (run after BQ data changes)
+uv run python -m lr_bestsellers refresh --source platform_names
+
 # Refresh a single doc file
 uv run python -m lr_bestsellers refresh --file knowledge_base/activation.md
 
 # Wipe all collections first, then re-ingest everything
 uv run python -m lr_bestsellers refresh --reset
+
+# Resume a CSV ingestion that was interrupted at row N (skip already-embedded rows)
+uv run python -m lr_bestsellers refresh --source csv --skip-rows 479000
 ```
+
+> **Platform resolver**: the `platform_names` source seeds a small Qdrant collection with every
+> canonical platform name from `active_platform_names` (e.g. `The Trade Desk`, `Google DV360`).
+> Run it once after initial setup and again whenever the live platform list changes.
+> Without it the resolver degrades gracefully — platform queries still work via
+> `REGEXP_REPLACE` normalisation, with a zero-row retry loop as a fallback.
 
 `BQ_PROJECT` / `BIGQUERY_PROJECT` is the **billing** project (for example `liveramp-eng-qa-reliability`). Table names are fully qualified inside `best_sellers.sql`. If `GOOGLE_APPLICATION_CREDENTIALS` is set, that service-account file is used; otherwise Application Default Credentials (ADC).
 
@@ -419,11 +431,18 @@ Useful variants:
 
 ```bash
 uv run python -m lr_bestsellers refresh --source glossary
-uv run python -m lr_bestsellers refresh --source bq          # live BigQuery query (slower)
-uv run python -m lr_bestsellers refresh --source csv         # local export (faster, see below)
+uv run python -m lr_bestsellers refresh --source bq                # live BigQuery query (slower)
+uv run python -m lr_bestsellers refresh --source csv               # local export (faster, see below)
+uv run python -m lr_bestsellers refresh --source platform_names    # seed platform name resolver
 uv run python -m lr_bestsellers refresh --file knowledge_base/activation.md
 uv run python -m lr_bestsellers refresh --reset   # wipe collections, then re-ingest
 ```
+
+> **`--source platform_names`** must be run at least once after initial setup (and again after
+> BigQuery platform data changes) to enable the platform name resolver. It reads every distinct
+> value from `active_platform_names` in BigQuery and stores them in a sparse Qdrant collection
+> so queries like `"activated to tradedesk"` can be resolved to `"The Trade Desk"` before the
+> SQL prompt is sent to Gemini.
 
 #### Using the CSV catalog export (recommended for large catalogs)
 
@@ -445,6 +464,26 @@ Required CSV columns (case-insensitive, UTF-8 BOM OK):
 `dms_segment_id`, `seller_customer_id`, `segment_name`, `segment_description`.
 
 The CSV file is **git-ignored** — do not commit it.
+
+#### Resuming an interrupted CSV ingestion
+
+If a large CSV run is interrupted (network timeout, DNS failure, Ctrl-C), Qdrant already
+holds everything that was upserted before the crash. Because every upsert is keyed on
+`dms_segment_id`, restarting from scratch is safe but wastes hours re-embedding rows that
+are already indexed.
+
+Use `--skip-rows N` to jump past the rows already processed and continue from where the
+run stopped:
+
+```bash
+# Interrupted after ~479,000 rows? Resume from row 479,000:
+uv run python -m lr_bestsellers refresh --source csv --skip-rows 479000
+```
+
+`--skip-rows` counts **data rows** (header excluded). The value does not need to be exact —
+a small overlap (a few hundred rows) is harmless because Qdrant upserts overwrite existing
+points by ID. Pick the last round number logged before the crash (`ingest.page_upserted`
+log lines report the cumulative `total` count).
 
 ### 6. Ask a question
 
@@ -590,7 +629,7 @@ uv run --allow-insecure-host pypi.org --allow-insecure-host files.pythonhosted.o
 | Variable                         | Settings field                    | Meaning                                   |
 | -------------------------------- | --------------------------------- | ----------------------------------------- |
 | `GOOGLE_API_KEY`                 | `google_api_key`                  | Gemini + embeddings                       |
-| `LLM_MODEL` / `GEMINI_MODEL`     | `llm_model`                       | Chat model (default `gemini-2.0-flash`)   |
+| `LLM_MODEL` / `GEMINI_MODEL`     | `llm_model`                       | Chat model (default `gemini-3.6-flash`)   |
 | `EMBEDDING_MODEL`                | `embedding_model`                 | Embeddings (default `gemini-embedding-2`) |
 | `BIGQUERY_PROJECT`               | `bigquery_project` / `bq_project` | **Billing** project for jobs              |
 | `GOOGLE_APPLICATION_CREDENTIALS` | `google_application_credentials`  | Optional SA JSON path; else ADC           |

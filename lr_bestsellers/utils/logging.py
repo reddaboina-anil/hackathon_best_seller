@@ -2,12 +2,17 @@
 
 Call :func:`configure_logging` once at application startup (before any
 ``structlog.get_logger()`` calls) to set up shared processors and route
-output to stdout as newline-delimited JSON.
+output to stdout as newline-delimited JSON.  When ``log_file`` is provided
+a :class:`~logging.handlers.RotatingFileHandler` is added that writes the
+same JSON stream to disk.
 
 Usage::
 
     from lr_bestsellers.utils.logging import configure_logging
     configure_logging(log_level="DEBUG")
+
+    # With file rotation (10 MiB per file, keep 5 backups):
+    configure_logging(log_level="INFO", log_file="logs/lr_bestsellers.log")
 
     import structlog
     log = structlog.get_logger(__name__)
@@ -17,14 +22,20 @@ Usage::
 from __future__ import annotations
 
 import logging
+import logging.handlers
 import sys
 from typing import Any
 
 import structlog
 
 
-def configure_logging(log_level: str = "INFO") -> None:
-    """Configure structlog for structured JSON output to stdout.
+def configure_logging(
+    log_level: str = "INFO",
+    log_file: str | None = None,
+    log_max_bytes: int = 10 * 1024 * 1024,
+    log_backup_count: int = 5,
+) -> None:
+    """Configure structlog for structured JSON output to stdout and optionally a file.
 
     Sets up a shared processor chain used by both native structlog loggers and
     stdlib loggers (e.g. from third-party libraries).  Safe to call multiple
@@ -37,12 +48,23 @@ def configure_logging(log_level: str = "INFO") -> None:
     4. Render stack info for exceptions.
     5. Serialise to JSON via ``JSONRenderer``.
 
+    When ``log_file`` is provided a ``RotatingFileHandler`` is added that
+    writes the identical JSON stream to ``log_file``.  The parent directory
+    of ``log_file`` must already exist.
+
     Args:
         log_level: Standard Python log level name, e.g. ``"INFO"``, ``"DEBUG"``.
             Case-insensitive.
+        log_file: Optional path to a rotating JSON log file. ``None`` disables
+            file logging (stdout only).
+        log_max_bytes: Maximum size of a single log file before rotation.
+            Default 10 MiB. Ignored when ``log_file`` is ``None``.
+        log_backup_count: Number of rotated backup files to keep. Default 5.
+            Ignored when ``log_file`` is ``None``.
 
     Example:
         >>> configure_logging("DEBUG")
+        >>> configure_logging("INFO", log_file="logs/app.log", log_max_bytes=5_000_000)
         >>> import structlog
         >>> log = structlog.get_logger("my.module")
         >>> log.info("ready", component="api")
@@ -73,11 +95,24 @@ def configure_logging(log_level: str = "INFO") -> None:
         ],
     )
 
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(formatter)
+    # Always write to stdout.
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setFormatter(formatter)
 
     root_logger = logging.getLogger()
     # Remove any handlers added by a previous call so we don't duplicate output.
     root_logger.handlers.clear()
-    root_logger.addHandler(handler)
+    root_logger.addHandler(stdout_handler)
+
+    # Optionally write the same JSON stream to a rotating file.
+    if log_file:
+        file_handler = logging.handlers.RotatingFileHandler(
+            log_file,
+            maxBytes=log_max_bytes,
+            backupCount=log_backup_count,
+            encoding="utf-8",
+        )
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
+
     root_logger.setLevel(log_level.upper())

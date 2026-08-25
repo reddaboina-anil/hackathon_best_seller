@@ -56,6 +56,46 @@ def _strip_sql_comments(sql: str) -> str:
     return "\n".join(lines)
 
 
+def _mask_sql_literals(sql: str) -> str:
+    """Replace quoted string bodies with spaces.
+
+    BigQuery ``STRING_AGG`` in ``best_sellers.sql`` uses ``'; '`` as a
+    separator. A raw ``;`` check would treat that as a second statement.
+
+    Args:
+        sql: SQL text, typically after comment stripping.
+
+    Returns:
+        Copy of ``sql`` with characters inside ``'...'`` / ``"..."``
+        replaced by spaces. Doubled quotes (``''``) are treated as escapes.
+    """
+    chars: list[str] = []
+    i = 0
+    n = len(sql)
+    while i < n:
+        ch = sql[i]
+        if ch not in {"'", '"'}:
+            chars.append(ch)
+            i += 1
+            continue
+        quote = ch
+        chars.append(" ")
+        i += 1
+        while i < n:
+            cur = sql[i]
+            if cur == quote:
+                i += 1
+                if i < n and sql[i] == quote:
+                    chars.append(" ")
+                    i += 1
+                    continue
+                chars.append(" ")
+                break
+            chars.append(" ")
+            i += 1
+    return "".join(chars)
+
+
 def _normalize_table(name: str) -> str:
     """Strip backticks from a table identifier.
 
@@ -164,7 +204,7 @@ class SelectOnlyGuardrail:
         cleaned = _strip_sql_comments(value).strip().rstrip(";")
         if not cleaned:
             return GuardrailResult(passed=False, code="SQL_NOT_SELECT", message="Empty SQL")
-        if ";" in cleaned:
+        if ";" in _mask_sql_literals(cleaned):
             return GuardrailResult(
                 passed=False,
                 code="SQL_NOT_SELECT",
@@ -221,7 +261,7 @@ class TableAllowlistGuardrail:
         cte_names = {
             match.group(1).lower()
             for match in re.finditer(
-                r"\b(?:WITH|,)\s+([A-Za-z_][A-Za-z0-9_]*)\s+AS\s*\(",
+                r"(?:(?:WITH|,)\s+)([A-Za-z_][A-Za-z0-9_]*)\s+AS\s*\(",
                 cleaned,
                 flags=re.IGNORECASE,
             )

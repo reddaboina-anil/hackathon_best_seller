@@ -18,3 +18,13 @@
 {"query": "other table", "sql": "SELECT * FROM not_allowed.secret", "valid": false}
 {"query": "insert", "sql": "INSERT INTO bestsellers_segments VALUES (1)", "valid": false}
 {"query": "marketplace", "sql": "SELECT dms_segment_id FROM `liveramp-eng-pie.entities.fin_marketplace_segments` LIMIT 5", "valid": true}
+{"query": "top segments activated to The Trade Desk", "sql": "SELECT dms_segment_id, segment_name, active_platform_names, distribution_rank FROM bestsellers_segments WHERE LOWER(active_platform_names) LIKE '%the trade desk%' ORDER BY distribution_rank ASC LIMIT 1000", "valid": true}
+{"query": "top segments activated to tradedesk", "sql": "SELECT dms_segment_id, segment_name, active_platform_names, distribution_rank FROM bestsellers_segments WHERE REGEXP_REPLACE(LOWER(active_platform_names), r'[^a-z0-9]', '') LIKE '%tradedesk%' LIMIT 1000", "valid": true}
+{"query": "Popularity rank 12", "sql": "SELECT dms_segment_id, segment_name, distribution_rank FROM bestsellers_segments WHERE distribution_rank = 12 LIMIT 1000", "valid": true}
+{"query": "Top 10% by impressions", "sql": "SELECT dms_segment_id, segment_name, cookie_reach, reach_rank FROM bestsellers_segments WHERE is_highly_reachable = TRUE ORDER BY reach_rank ASC LIMIT 1000", "valid": true}
+{"query": "Top 10% by provider revenue", "sql": "SELECT dms_segment_id, segment_name, distribution_rank FROM bestsellers_segments WHERE is_highly_distributed = TRUE ORDER BY distribution_rank ASC LIMIT 1000", "valid": true}
+{"query": "Active across 8 buyer platforms", "sql": "SELECT dms_segment_id, segment_name, active_platforms FROM bestsellers_segments WHERE active_platforms >= 8 ORDER BY active_platforms DESC LIMIT 1000", "valid": true}
+{"query": "Used by 23 buyers in the last 30 days", "sql": "SELECT dms_segment_id, segment_name, active_buyers FROM bestsellers_segments WHERE active_buyers >= 23 ORDER BY active_buyers DESC LIMIT 1000", "valid": true}
+{"query": "Show only segments with top-10% impressions", "sql": "SELECT dms_segment_id, segment_name, cookie_reach, reach_rank FROM bestsellers_segments WHERE is_highly_reachable = TRUE ORDER BY reach_rank ASC LIMIT 1000", "valid": true}
+{"query": "Compare reach and revenue for the top five", "sql": "SELECT dms_segment_id, segment_name, cookie_reach, active_destination_accounts, distribution_rank, reach_rank FROM bestsellers_segments ORDER BY distribution_rank ASC LIMIT 5", "valid": true}
+{"query": "Exclude segments from this seller", "sql": "SELECT dms_segment_id, segment_name, distribution_rank FROM bestsellers_segments WHERE seller_customer_id != '99999' ORDER BY distribution_rank ASC LIMIT 1000", "valid": true}

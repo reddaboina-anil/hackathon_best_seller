@@ -15,7 +15,7 @@ from typing import Final, Literal
 from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-DEFAULT_LLM_MODEL: Final[str] = "gemini-2.0-flash"
+DEFAULT_LLM_MODEL: Final[str] = "gemini-3.6-flash"
 """Default Gemini chat model used when ``LLM_MODEL`` is unset."""
 
 DEFAULT_EMBEDDING_MODEL: Final[str] = "gemini-embedding-2"
@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     Attributes:
         google_api_key: Gemini API key for the chat and embedding models.
-        llm_model: Gemini chat model id (default ``gemini-2.0-flash``).
+        llm_model: Gemini chat model id (default ``gemini-3.6-flash``).
         embedding_model: Gemini embedding model id (default ``gemini-embedding-2``).
         bigquery_project: GCP project ID that owns the BigQuery dataset.
         csv_catalog_path: Path to the offline BigQuery CSV dump.
@@ -166,6 +166,24 @@ class Settings(BaseSettings):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
         "INFO",
         description="Application log verbosity.",
+    )
+    log_file: str | None = Field(
+        None,
+        description=(
+            "Path to a rotating JSON log file. When set, log output is written "
+            "to both stdout and this file. Example: 'logs/lr_bestsellers.log'. "
+            "The parent directory must exist."
+        ),
+    )
+    log_max_bytes: int = Field(
+        10 * 1024 * 1024,
+        ge=1,
+        description="Maximum size of a single log file in bytes before rotation (default 10 MiB).",
+    )
+    log_backup_count: int = Field(
+        5,
+        ge=0,
+        description="Number of rotated log files to retain alongside the active file.",
     )
     environment: Literal["development", "staging", "production"] = Field(
         "development",

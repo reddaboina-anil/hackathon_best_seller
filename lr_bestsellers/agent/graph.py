@@ -8,7 +8,13 @@ import structlog
 from langgraph.graph import END, START, StateGraph
 from qdrant_client import QdrantClient
 
-from lr_bestsellers.agent.nodes import GeminiLLM, NodeContext, make_node_map
+from lr_bestsellers.agent.nodes import (
+    GeminiLLM,
+    NodeContext,
+    load_bestsellers_pipeline,
+    make_node_map,
+)
+from lr_bestsellers.agent.platform_resolver import PlatformResolver
 from lr_bestsellers.agent.tools import BigQueryRunner, FakeBqRunner
 from lr_bestsellers.config import Settings
 from lr_bestsellers.guardrails import SqlChainValidator
@@ -230,6 +236,8 @@ def build_node_context(
         llm=active_llm,
         bq=active_bq,
         sql_validator=SqlChainValidator(),
+        pipeline_sql=load_bestsellers_pipeline(),
+        platform_resolver=PlatformResolver(store, embedder),
     )
 
 
@@ -256,4 +264,5 @@ def run_query(text: str, ctx: NodeContext) -> QueryResponse:
         sql_used=raw.get("sql_used"),
         confidence=float(raw.get("confidence") or 0.0),
         intent=raw.get("intent") or "vague",
+        sql_results=list(raw.get("sql_results") or []),
     )

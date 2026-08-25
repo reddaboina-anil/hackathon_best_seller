@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from lr_bestsellers.agent.nodes import load_bestsellers_pipeline, wrap_llm_sql_with_pipeline
 from lr_bestsellers.agent.prompts import GROUNDING_FALLBACK
 from lr_bestsellers.exceptions import InputGuardrailError, SQLGuardrailError
 from lr_bestsellers.guardrails import SqlChainValidator, build_input_chain, build_sql_chain
@@ -142,6 +143,17 @@ class TestSelectOnlyGuardrail:
         assert result.passed is False
         assert result.code == "SQL_NOT_SELECT"
 
+    def test_fail_stacked_statements(self) -> None:
+        """A second statement after ``;`` is rejected."""
+        result = SelectOnlyGuardrail().check("SELECT 1; SELECT 2")
+        assert result.passed is False
+        assert result.code == "SQL_NOT_SELECT"
+
+    def test_pass_semicolon_inside_string(self) -> None:
+        """Separators like ``'; '`` in STRING_AGG are not stacked SQL."""
+        sql = "SELECT STRING_AGG(name, '; ' ORDER BY name) AS labels FROM bestsellers_segments"
+        assert SelectOnlyGuardrail().check(sql).passed is True
+
 
 class TestTableAllowlistGuardrail:
     """Table allowlist."""
@@ -159,11 +171,38 @@ class TestTableAllowlistGuardrail:
         )
         assert TableAllowlistGuardrail().check(sql).passed is True
 
+    def test_pass_comma_separated_ctes(self) -> None:
+        """CTEs after ``),`` are recognized (no word-boundary before the comma)."""
+        sql = (
+            "WITH alpha AS (SELECT 1 AS n FROM bestsellers_segments), "
+            "beta AS (SELECT n FROM alpha) "
+            "SELECT n FROM beta"
+        )
+        assert TableAllowlistGuardrail().check(sql).passed is True
+
     def test_fail_unknown(self) -> None:
         """Unknown table fails DISALLOWED_TABLE."""
         result = TableAllowlistGuardrail().check("SELECT * FROM evil.other_table")
         assert result.passed is False
         assert result.code == "DISALLOWED_TABLE"
+
+    def test_wrapped_best_sellers_sql(self) -> None:
+        """Injected best_sellers.sql tables stay on the allowlist."""
+        pipeline = load_bestsellers_pipeline()
+        assert pipeline
+        sql = wrap_llm_sql_with_pipeline(
+            "SELECT * FROM bestsellers_segments LIMIT 10",
+            pipeline,
+        )
+        # New CTE-merge behaviour: pipeline CTEs come first, so the assembled
+        # SQL begins with the pipeline's WITH block (possibly preceded by
+        # comment lines), not with SELECT.
+        assert "WITH syndicated_segments AS" in sql
+        assert "bestsellers_segments AS (" in sql
+        result = TableAllowlistGuardrail().check(sql)
+        assert result.passed is True, result.message
+        select_only = SelectOnlyGuardrail().check(sql)
+        assert select_only.passed is True, select_only.message
 
 
 class TestRowLimitGuardrail:

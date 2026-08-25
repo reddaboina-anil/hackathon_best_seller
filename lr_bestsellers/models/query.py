@@ -147,3 +147,7 @@ class QueryResponse(BaseModel):
         ...,
         description="Classified intent that determined routing.",
     )
+    sql_results: list[SqlRow] = Field(
+        default_factory=list,
+        description="Raw BigQuery rows returned during this request.",
+    )

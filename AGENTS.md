@@ -97,18 +97,29 @@ lr_bestsellers/
 │   ├── models/query.py              # QueryRequest/Response, SqlRow, citations
 │   ├── models/segment.py            # SegmentDocument
 │   ├── models/chunk.py              # ChildChunk, ParentChunk, SearchResult
+<<<<<<< HEAD
 │   ├── models/catalog.py            # SegmentFeatureRow, CatalogPage, AgentAnswer
-│   ├── store/protocols.py           # VectorStoreProtocol, CatalogRepositoryProtocol
+│   ├── store/protocols.py           # VectorStoreProtocol, UpsertRecord,
+│   │                                #   CatalogRepositoryProtocol,
+│   │                                #   COLLECTION_PLATFORM_NAMES constant
 │   ├── store/qdrant.py              # QdrantRepository + RRF helpers
 │   ├── store/csv_catalog.py         # CsvCatalogRepository (paginated CSV reads)
 │   ├── store/sparse.py              # deterministic sparse encoder
 │   ├── ingestion/protocols.py       # IngestionSourceProtocol, embed_and_upsert
 │   ├── ingestion/file_ingestion.py  # domain_knowledge from markdown
-│   ├── ingestion/bq_fetcher.py      # segment_catalog from BigQuery
+│   ├── ingestion/bq_fetcher.py      # segment_catalog + PlatformNamesSource
 │   ├── ingestion/glossary_builder.py
-│   ├── agent/prompts.py             # Final[str] prompts
+│   ├── agent/prompts.py             # Final[str] prompts (TEXT2SQL_PROMPT,
+│   │                                #   SQL_RETRY_PROMPT, build_platform_hint)
+│   ├── agent/sql_pipeline.py        # CTE-merging assembler
+│   │                                #   (_find_top_level_select, _split_pipeline,
+│   │                                #    assemble_bestsellers_query)
+│   ├── agent/platform_resolver.py   # extract_platform_candidate + PlatformResolver
+│   │                                #   (Qdrant sparse search → canonical name)
 │   ├── agent/tools.py               # LangChain StructuredTools + BQ runner
 │   ├── agent/nodes.py               # node functions + NodeContext
+│   │                                #   (platform_resolver injection,
+│   │                                #    zero-row SQL retry loop)
 │   ├── agent/graph.py               # StateGraph, run_query, callbacks
 │   ├── guardrails/base.py           # GuardrailChain
 │   ├── guardrails/input.py
@@ -118,6 +129,9 @@ lr_bestsellers/
 │   ├── hooks/metrics.py             # counters + alert rules
 │   └── utils/logging.py, chunking.py, reranker.py, embeddings.py
 └── tests/unit|integration|evals/
+    ├── tests/unit/test_nodes.py              # updated: 2-CTE fixture + assemble tests
+    ├── tests/unit/test_platform_resolver.py  # new
+    └── tests/unit/test_query_patterns.py     # new: 10 deterministic assembly tests
 ```
 
 ---

@@ -57,13 +57,16 @@ class CsvCatalogIngestionSource:
         'csv'
     """
 
-    def __init__(self, csv_path: Path) -> None:
-        """Store the CSV path.
+    def __init__(self, csv_path: Path, skip_rows: int = 0) -> None:
+        """Store the CSV path and optional row-skip count for resuming.
 
         Args:
             csv_path: Local catalog export (BigQuery UI download or ``bq extract``).
+            skip_rows: Number of data rows to skip before starting to embed.
+                Use this to resume a previously interrupted ingestion run.
         """
         self._csv_path = csv_path
+        self._skip_rows = skip_rows
 
     @property
     def name(self) -> str:
@@ -130,8 +133,19 @@ class CsvCatalogIngestionSource:
             page: list[RawDocument] = []
             page_number = 0
             skipped = 0
+            rows_seen = 0
+
+            if self._skip_rows > 0:
+                log.info(
+                    "csv.resuming",
+                    skip_rows=self._skip_rows,
+                    path=str(self._csv_path),
+                )
 
             for raw in reader:
+                rows_seen += 1
+                if rows_seen <= self._skip_rows:
+                    continue
                 row = {_normalise(k): v for k, v in raw.items() if k}
                 if not str(row.get("dms_segment_id") or "").strip():
                     skipped += 1

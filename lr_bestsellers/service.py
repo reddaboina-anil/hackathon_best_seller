@@ -69,7 +69,7 @@ def apply_output_guardrails(response: QueryResponse) -> QueryResponse:
     Raises:
         OutputGuardrailError: When a hard output check fails after retry.
     """
-    evidence = evidence_from_response(response)
+    evidence = evidence_from_response(response, sql_rows=response.sql_results)
     chain = GuardrailChain(
         [
             CitationRequiredGuardrail(),
@@ -115,7 +115,12 @@ def answer_query(
         True
     """
     cfg = settings or load_settings()
-    configure_logging(cfg.log_level)
+    configure_logging(
+        cfg.log_level,
+        log_file=cfg.log_file,
+        log_max_bytes=cfg.log_max_bytes,
+        log_backup_count=cfg.log_backup_count,
+    )
     try:
         build_input_chain(caller_id).run(text)
     except InputGuardrailError as exc:

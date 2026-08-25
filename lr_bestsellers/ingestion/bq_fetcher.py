@@ -19,7 +19,7 @@ from lr_bestsellers.config import Settings
 from lr_bestsellers.exceptions import IngestionError
 from lr_bestsellers.ingestion.catalog_docs import document_from_catalog_row
 from lr_bestsellers.ingestion.protocols import RawDocument
-from lr_bestsellers.store.protocols import COLLECTION_SEGMENT_CATALOG
+from lr_bestsellers.store.protocols import COLLECTION_PLATFORM_NAMES, COLLECTION_SEGMENT_CATALOG
 
 log = structlog.get_logger(__name__)
 
@@ -189,4 +189,112 @@ class BigQueryIngestionSource:
             offset += CATALOG_PAGE_SIZE
             page_number += 1
 
+
+_PLATFORM_NAMES_SQL: str = (
+    "SELECT DISTINCT TRIM(platform) AS platform_name\n"
+    "FROM UNNEST(SPLIT(active_platform_names, ', ')) AS platform\n"
+    "WHERE TRIM(platform) != ''"
+)
+
+
+class PlatformNamesSource:
+    """Ingest distinct canonical platform names from BigQuery into Qdrant.
+
+    At every ``refresh --source platform_names`` run, this source queries
+    the live pipeline SQL to collect all distinct values from the
+    ``active_platform_names`` column and upserts them into the
+    ``platform_names`` Qdrant collection for sparse BM25 lookup.
+
+    Args:
+        settings: App settings (billing project + optional SA path).
+        pipeline_sql: Body of ``best_sellers.sql`` (no trailing semicolon).
+        client: Optional injected BigQuery client (tests).
+    """
+
+    def __init__(
+        self,
+        settings: Settings,
+        pipeline_sql: str,
+        client: object | None = None,
+    ) -> None:
+        """Store settings, pipeline SQL, and optional client.
+
+        Args:
+            settings: Application settings.
+            pipeline_sql: Best-sellers pipeline SQL used as a CTE.
+            client: Optional injected BigQuery client.
+        """
+        self._settings = settings
+        self._pipeline_sql = pipeline_sql.strip().rstrip(";")
+        self._client = client
+
+    @property
+    def name(self) -> str:
+        """Return the source name ``platform_names``."""
+        return "platform_names"
+
+    @property
+    def collection(self) -> str:
+        """Return ``platform_names``."""
+        return str(COLLECTION_PLATFORM_NAMES)
+
+    def load(self) -> list[RawDocument]:
+        """Query BigQuery for distinct platform names.
+
+        Wraps the full pipeline SQL in a sub-CTE to extract distinct values
+        from ``active_platform_names``.
+
+        Returns:
+            One ``RawDocument`` per distinct canonical platform name.
+
+        Raises:
+            IngestionError: When the BigQuery job fails.
+        """
+        if not self._pipeline_sql:
+            log.warning("platform_names.empty_pipeline", note="No pipeline SQL; skipping")
+            return []
+
+        pipeline = self._pipeline_sql
+        wrapped_sql = (
+            f"WITH bestsellers_cte AS (\n{pipeline}\n)\n"
+            "SELECT DISTINCT TRIM(platform) AS platform_name\n"
+            "FROM UNNEST(SPLIT(\n"
+            "  (SELECT STRING_AGG(active_platform_names, ', ') FROM bestsellers_cte),\n"
+            "  ', '\n"
+            ")) AS platform\n"
+            "WHERE TRIM(platform) != ''"
+        )
+
+        client = self._client or build_bigquery_client(self._settings)
+        try:
+            query_fn = getattr(client, "query")
+            job = query_fn(wrapped_sql, location="US")
+            result = job.result(timeout=180)
+            rows: list[object] = [dict(row) for row in result]  # type: ignore[arg-type]
+        except Exception as exc:
+            log.error(
+                "platform_names.query_failed",
+                error=str(exc),
+                billing_project=self._settings.bq_project,
+            )
+            raise IngestionError("PlatformNamesSource BigQuery query failed") from exc
+
+        documents: list[RawDocument] = []
+        for i, row in enumerate(rows):
+            row_dict = row if isinstance(row, dict) else {}
+            name_val = str(row_dict.get("platform_name", "")).strip()
+            if not name_val:
+                continue
+            documents.append(
+                RawDocument(
+                    point_id=f"platform_name_{i}",
+                    text=name_val,
+                    collection=self.collection,
+                    section="platform_names",
+                    filename="bigquery:active_platform_names",
+                    token_count=max(1, len(name_val.split())),
+                )
+            )
+        log.info("platform_names.loaded", count=len(documents))
+        return documents
 
