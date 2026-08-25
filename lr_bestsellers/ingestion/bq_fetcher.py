@@ -26,7 +26,7 @@ log = structlog.get_logger(__name__)
 
 # jobs.insert (used by client.query) is not allowed on bigquery.readonly.
 _BQ_SCOPE = "https://www.googleapis.com/auth/bigquery"
-CATALOG_PAGE_SIZE: Final[int] = 100
+CATALOG_PAGE_SIZE: Final[int] = 16
 """Rows fetched, embedded, and upserted per BigQuery page."""
 
 
