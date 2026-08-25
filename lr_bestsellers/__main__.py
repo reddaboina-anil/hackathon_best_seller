@@ -131,7 +131,7 @@ def build_sources(
         Concrete sources to run.
     """
     kb = root / "knowledge_base"
-    sql_path = root / "best_sellers.sql"
+    sql_path = root / "segment_catalog.sql"
     selected: list[IngestionSourceProtocol] = []
     want_files = source in ("files", "all") or only_file is not None
     want_glossary = source in ("glossary", "all") and only_file is None

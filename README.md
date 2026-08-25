@@ -63,7 +63,7 @@ flowchart LR
     Files["knowledge_base/*.md\nexcept glossary.md"] --> Chunk["ParentChildChunker\nH2 parents, ~300-token children"]
     Chunk --> DK["Qdrant collection\ndomain_knowledge"]
     Gloss["glossary.md H2 terms"] --> G["Qdrant collection\nglossary"]
-    SQL["best_sellers.sql"] --> BQJob["BigQuery job\nbilling project = BQ_PROJECT"]
+    SQL["segment_catalog.sql\nnames + descriptions"] --> BQJob["BigQuery job\nbilling project = BQ_PROJECT"]
     BQJob --> Cat["Qdrant collection\nsegment_catalog\n(no live metrics stored)"]
 ```
 
