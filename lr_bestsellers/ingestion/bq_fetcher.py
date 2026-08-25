@@ -17,16 +17,15 @@ from google.oauth2 import service_account
 
 from lr_bestsellers.config import Settings
 from lr_bestsellers.exceptions import IngestionError
+from lr_bestsellers.ingestion.catalog_docs import document_from_catalog_row
 from lr_bestsellers.ingestion.protocols import RawDocument
-from lr_bestsellers.models.segment import SegmentDocument
 from lr_bestsellers.store.protocols import COLLECTION_SEGMENT_CATALOG
-from lr_bestsellers.utils.chunking import count_tokens
 
 log = structlog.get_logger(__name__)
 
 # jobs.insert (used by client.query) is not allowed on bigquery.readonly.
 _BQ_SCOPE = "https://www.googleapis.com/auth/bigquery"
-CATALOG_PAGE_SIZE: Final[int] = 16
+CATALOG_PAGE_SIZE: Final[int] = 1000
 """Rows fetched, embedded, and upserted per BigQuery page."""
 
 
@@ -177,55 +176,17 @@ class BigQueryIngestionSource:
             )
             if not rows:
                 break
-            yield [_document_from_row(row, self.collection) for row in rows]
+            yield [
+                document_from_catalog_row(
+                    row,
+                    self.collection,
+                    filename="segment_catalog.sql",
+                )
+                for row in rows
+            ]
             if len(rows) < CATALOG_PAGE_SIZE:
                 break
             offset += CATALOG_PAGE_SIZE
             page_number += 1
 
 
-def _document_from_row(row: Mapping[str, object], collection: str) -> RawDocument:
-    """Map a catalog SQL row to a ``RawDocument``.
-
-    Args:
-        row: BigQuery row.
-        collection: Target Qdrant collection name.
-
-    Returns:
-        Document ready to embed.
-    """
-    doc = _row_to_segment(row)
-    text = doc.to_embedding_text()
-    return RawDocument(
-        point_id=doc.dms_segment_id,
-        text=text,
-        collection=collection,
-        parent_text=text,
-        filename="segment_catalog.sql",
-        section=doc.name,
-        parent_id=doc.dms_segment_id,
-        token_count=count_tokens(text),
-        dms_segment_id=doc.dms_segment_id,
-        seller_customer_id=doc.seller_customer_id,
-    )
-
-
-def _row_to_segment(row: Mapping[str, object]) -> SegmentDocument:
-    """Map a BigQuery row to ``SegmentDocument``.
-
-    Args:
-        row: Mapping-like query row.
-
-    Returns:
-        Catalog document (metrics discarded).
-    """
-    dms_id = str(row["dms_segment_id"])
-    seller = str(row["seller_customer_id"] or "")
-    name = str(row["segment_name"] or "")
-    description = str(row["segment_description"] or "")
-    return SegmentDocument(
-        dms_segment_id=dms_id,
-        seller_customer_id=seller or "unknown",
-        name=name or dms_id,
-        description=description or name or dms_id,
-    )

@@ -21,6 +21,10 @@ from qdrant_client import QdrantClient
 from lr_bestsellers.config import Settings, get_settings
 from lr_bestsellers.exceptions import IngestionError
 from lr_bestsellers.ingestion.bq_fetcher import BigQueryIngestionSource
+from lr_bestsellers.ingestion.csv_catalog import (
+    DEFAULT_CATALOG_CSV,
+    CsvCatalogIngestionSource,
+)
 from lr_bestsellers.ingestion.file_ingestion import FileIngestionSource
 from lr_bestsellers.ingestion.glossary_builder import GlossaryIngestionSource
 from lr_bestsellers.ingestion.protocols import IngestionSourceProtocol, embed_and_upsert
@@ -30,7 +34,7 @@ from lr_bestsellers.utils.logging import configure_logging
 
 log = structlog.get_logger(__name__)
 
-SourceName = Literal["files", "bq", "glossary", "all"]
+SourceName = Literal["files", "bq", "glossary", "csv", "all"]
 
 
 def repo_root() -> Path:
@@ -58,14 +62,21 @@ def _build_parser() -> argparse.ArgumentParser:
         "--file",
         dest="file",
         default=None,
-        help="Re-ingest a single knowledge_base markdown file",
+        help=(
+            "For --source files: re-ingest a single knowledge_base markdown file. "
+            f"For --source csv: path to the CSV export (default: {DEFAULT_CATALOG_CSV})."
+        ),
     )
     refresh.add_argument(
         "--source",
         dest="source",
-        choices=("files", "bq", "glossary", "all"),
+        choices=("files", "bq", "glossary", "csv", "all"),
         default="all",
-        help="Which ingestion source to run",
+        help=(
+            "Which ingestion source to run. "
+            "'all' includes files + glossary + bq (not csv). "
+            "'csv' reads a local BigQuery export and is not run by 'all'."
+        ),
     )
     refresh.add_argument(
         "--reset",
@@ -121,11 +132,15 @@ def build_sources(
 ) -> list[IngestionSourceProtocol]:
     """Instantiate the requested ingestion sources.
 
+    ``csv`` is **not** included in ``all``: running a million-row embedding by
+    accident would be disruptive. Use ``--source csv`` explicitly.
+
     Args:
         settings: Application settings.
         source: Source selector.
-        only_file: Optional single markdown file for the files source.
-        root: Repository root.
+        only_file: For ``files``: single markdown file. For ``csv``: CSV path
+            override (defaults to ``DEFAULT_CATALOG_CSV`` in ``root``).
+        root: Repository root (cwd when invoked via ``uv run``).
 
     Returns:
         Concrete sources to run.
@@ -133,7 +148,17 @@ def build_sources(
     kb = root / "knowledge_base"
     sql_path = root / "segment_catalog.sql"
     selected: list[IngestionSourceProtocol] = []
-    want_files = source in ("files", "all") or only_file is not None
+
+    if source == "csv":
+        csv_path = (
+            Path(only_file) if only_file else root / DEFAULT_CATALOG_CSV
+        )
+        selected.append(CsvCatalogIngestionSource(csv_path))
+        return selected
+
+    want_files = source in ("files", "all") or (
+        only_file is not None and source != "bq"
+    )
     want_glossary = source in ("glossary", "all") and only_file is None
     want_bq = source in ("bq", "all") and only_file is None
     if source == "files":

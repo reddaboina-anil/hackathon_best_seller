@@ -13,7 +13,7 @@ from lr_bestsellers.store.protocols import EMBEDDING_DIM
 
 log = structlog.get_logger(__name__)
 
-EMBED_BATCH_SIZE: Final[int] = 1000
+EMBED_BATCH_SIZE: Final[int] = 100
 """Texts sent in one Gemini embedContent call (100 often resets the socket)."""
 
 _EMBED_MAX_ATTEMPTS: Final[int] = 5

@@ -15,3 +15,6 @@ wheels/
 .ruff_cache/
 .pytest_cache/
 tests/evals/results/
+
+# BigQuery catalog CSV export (too large for git; generate with bq extract or BQ UI)
+dms_segments_best_sellers.csv
