@@ -12,8 +12,12 @@ LiveRamp syndicated segments. Users ask plain-English questions and receive
 grounded, cited answers backed by Qdrant vector search and live BigQuery
 queries.
 
+A FastAPI layer exposes one endpoint, `GET /v1/segments`, that either answers a
+question (`query` present) or pages an offline CSV dump of the BigQuery features
+table (`query` absent).
+
 **Tech stack**: Python 3.13 · uv · LangGraph · Gemini 2.0 Flash ·
-gemini-embedding-2 · Qdrant · BigQuery · pydantic v2 · structlog
+gemini-embedding-2 · Qdrant · BigQuery · FastAPI · pydantic v2 · structlog
 
 **Billing vs data**: `Settings.bigquery_project` (`bq_project`) is the GCP
 **billing** project. Data tables are fully qualified in `best_sellers.sql`.
@@ -75,20 +79,27 @@ Every public function, class, and method uses Google-style docstrings
 
 ```
 lr_bestsellers/
-├── main.py                          # query(text) + CLI
+├── main.py                          # query(text) + CLI (delegates to service.py)
 ├── docker-compose.yml               # local Qdrant
 ├── best_sellers.sql                 # live catalog + metrics SQL
+├── csv_dump/*.csv                   # offline BigQuery dump served in browse mode
 ├── knowledge_base/*.md              # domain docs + glossary
 ├── lr_bestsellers/
 │   ├── __init__.py                  # query(QueryRequest), ingest()
 │   ├── __main__.py                  # `python -m lr_bestsellers refresh`
 │   ├── config.py                    # Settings + get_settings()
 │   ├── exceptions.py                # BestSellersError hierarchy
+│   ├── service.py                   # guarded query flow shared by CLI + API
+│   ├── api/app.py                   # create_app(), lifespan, exception handlers
+│   ├── api/routes.py                # GET /v1/segments (ask + browse branches)
+│   ├── api/dependencies.py          # cached Settings + catalog repo providers
 │   ├── models/query.py              # QueryRequest/Response, SqlRow, citations
 │   ├── models/segment.py            # SegmentDocument
 │   ├── models/chunk.py              # ChildChunk, ParentChunk, SearchResult
-│   ├── store/protocols.py           # VectorStoreProtocol, UpsertRecord
+│   ├── models/catalog.py            # SegmentFeatureRow, CatalogPage, AgentAnswer
+│   ├── store/protocols.py           # VectorStoreProtocol, CatalogRepositoryProtocol
 │   ├── store/qdrant.py              # QdrantRepository + RRF helpers
+│   ├── store/csv_catalog.py         # CsvCatalogRepository (paginated CSV reads)
 │   ├── store/sparse.py              # deterministic sparse encoder
 │   ├── ingestion/protocols.py       # IngestionSourceProtocol, embed_and_upsert
 │   ├── ingestion/file_ingestion.py  # domain_knowledge from markdown
@@ -121,6 +132,7 @@ uv run mypy lr_bestsellers/
 uv run python -m lr_bestsellers refresh
 uv run python tests/evals/run_evals.py --report
 uv run python main.py "What are the top segments by cookie reach?"
+uv run uvicorn lr_bestsellers.api.app:app --reload
 ```
 
 ---
@@ -146,7 +158,8 @@ uv run python main.py "What are the top segments by cookie reach?"
 ### 5.3 Add a new guardrail
 
 1. Implement `name` + `check(value: str) -> GuardrailResult` (Protocol in `guardrails/base.py`).
-2. Insert it into `build_input_chain`, `build_sql_chain`, or `apply_output_guardrails` in `main.py`.
+2. Insert it into `build_input_chain`, `build_sql_chain`, or `apply_output_guardrails`
+   in `service.py`.
 3. Raise `InputGuardrailError` / `SQLGuardrailError` / `OutputGuardrailError` via `GuardrailChain`.
 4. Add pass and fail cases in `tests/unit/test_guardrails.py`.
 
@@ -156,6 +169,17 @@ uv run python main.py "What are the top segments by cookie reach?"
 2. Run `uv run python -m lr_bestsellers refresh --source glossary`.
 3. Optional: add a conceptual golden query in `tests/evals/datasets/golden_queries.jsonl`
    (or regenerate via `tests/evals/_generate_datasets.py` and edit).
+
+### 5.5 Add an API endpoint
+
+1. Add the route to `lr_bestsellers/api/routes.py` on the existing `/v1` router,
+   with `response_model`, `summary`, and `responses` so OpenAPI stays accurate.
+2. Inject dependencies via `Depends` on providers in `api/dependencies.py` —
+   never call `get_settings()` inside a handler.
+3. Return Pydantic models from `models/`; raise `BestSellersError` subclasses and
+   let the handlers in `api/app.py` map them to status codes.
+4. Add request and error cases in `tests/unit/test_api.py`, and assert the schema
+   change in `TestOpenApiSchema`.
 
 ---
 
@@ -167,12 +191,16 @@ BestSellersError
 ├── EmbeddingError
 ├── SQLGenerationError
 ├── IngestionError
+├── CatalogError
 ├── ThresholdNotMetError
 └── GuardrailError
     ├── InputGuardrailError
     ├── SQLGuardrailError
     └── OutputGuardrailError
 ```
+
+HTTP mapping in `api/app.py`: `InputGuardrailError` → 400, other `GuardrailError`
+→ 502, `CatalogError` → 503, any other `BestSellersError` → 500.
 
 Always raise the **most specific** subclass and chain with `from exc`.
 

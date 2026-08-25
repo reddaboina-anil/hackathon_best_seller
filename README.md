@@ -245,6 +245,101 @@ uv run python main.py "What are the top segments by cookie reach?"
 
 Conceptual check after glossary ingest: `uv run python main.py "What is cookie_reach?"` — expect a cited answer with `[Source: …]`.
 
+### 7. Serve the HTTP API
+
+```bash
+uv run uvicorn lr_bestsellers.api.app:app --reload
+```
+
+Swagger UI is at [http://localhost:8000/docs](http://localhost:8000/docs), ReDoc at `/redoc`, and the OpenAPI schema at `/openapi.json`.
+
+---
+
+## HTTP API
+
+One endpoint, two behaviours, chosen by whether `query` is present.
+
+```mermaid
+flowchart LR
+    Req["GET /v1/segments"] --> Branch{"query supplied?"}
+    Branch -->|Yes| Guarded["Input guardrails → LangGraph → output guardrails"]
+    Guarded --> Agent["AgentAnswer\nmode = agent"]
+    Branch -->|No| CSV["CsvCatalogRepository\ncsv_dump/*.csv parsed once, cached"]
+    CSV --> Page["CatalogPage\nmode = catalog"]
+```
+
+`GET /v1/segments`
+
+| Parameter | Where | Default | Meaning |
+|---|---|---|---|
+| `query` | query string | *(none)* | Plain-English question, up to 2000 characters. Blank or absent switches to browse mode. |
+| `page` | query string | `1` | 1-based page number. Browse mode only. |
+| `page_size` | query string | `50` | Rows per page, max `200`. Browse mode only. |
+| `X-Caller-Id` | header | `api` | Rate-limit bucket key. Ask mode only. |
+
+**Browse mode** — no `query`, so no LLM and no BigQuery call. The CSV dump of the segment recommendation features table is parsed on first request and cached, so later pages are served from memory.
+
+```bash
+curl -s "http://localhost:8000/v1/segments?page=1&page_size=2"
+```
+
+```json
+{
+  "mode": "catalog",
+  "source": "segment_recommendation_features.csv",
+  "pagination": {
+    "page": 1,
+    "page_size": 2,
+    "total_items": 14633,
+    "total_pages": 7317,
+    "has_next": true,
+    "has_previous": false
+  },
+  "items": [
+    {
+      "dms_segment_id": 32003,
+      "segment_name": "Acxiom US Demographic > Age > Adult Age in HH > 35-44",
+      "segment_description": "Someone in the household is between the ages of 35-44",
+      "active_platform_names": ["A&E Networks", "Altice / NYI", "Ampersand"],
+      "impressions": 25662800.19939599,
+      "popularity_rank": 1,
+      "is_top_n_popular": true,
+      "usage_start_date": "2026-07-26"
+    }
+  ]
+}
+```
+
+**Ask mode** — `query` present, so the question runs through the same guarded pipeline the CLI uses.
+
+```bash
+curl -s "http://localhost:8000/v1/segments?query=Which%20segments%20earn%20the%20most%20provider%20revenue%3F"
+```
+
+```json
+{
+  "mode": "agent",
+  "query": "Which segments earn the most provider revenue?",
+  "result": {
+    "answer": "… [Source: BigQuery:best_sellers]",
+    "sources": [{"source": "BigQuery", "text": "…", "score": 1.0}],
+    "sql_used": "SELECT … LIMIT 1000",
+    "confidence": 0.91,
+    "intent": "analytics"
+  }
+}
+```
+
+Errors share one envelope, `{"error": "<CODE>", "detail": "<message>"}`:
+
+| Status | When | `error` |
+|---|---|---|
+| `400` | Input guardrail rejected the query | Guardrail code, e.g. `PII_DETECTED` |
+| `422` | Parameter validation failed (`page=0`, `page_size=500`, query over 2000 chars) | FastAPI validation body |
+| `500` | Retrieval, embedding, or SQL generation failure | `PIPELINE_ERROR` |
+| `502` | Answer failed an output guardrail | Guardrail code, e.g. `MISSING_CITATION` |
+| `503` | CSV dump missing or malformed | `CATALOG_UNAVAILABLE` |
+
 ---
 
 ## Quick start
@@ -289,6 +384,7 @@ uv run --allow-insecure-host pypi.org --allow-insecure-host files.pythonhosted.o
 | `EMBEDDING_MODEL` | `embedding_model` | Embeddings (default `gemini-embedding-2`) |
 | `BIGQUERY_PROJECT` | `bigquery_project` / `bq_project` | **Billing** project for jobs |
 | `GOOGLE_APPLICATION_CREDENTIALS` | `google_application_credentials` | Optional SA JSON path; else ADC |
+| `CSV_CATALOG_PATH` | `csv_catalog_path` | CSV dump served in browse mode (default `csv_dump/segment_recommendation_features.csv`). Alias: `CSV_DUMP_PATH` |
 | `QDRANT_URL` | `qdrant_url` | Default `http://localhost:6333` |
 | `QDRANT_API_KEY` | `qdrant_api_key` | Qdrant Cloud only |
 | `SIMILARITY_THRESHOLD` | `similarity_threshold` | Default `0.65` |
@@ -312,6 +408,7 @@ Never commit `.env` or service-account JSON. `*.json` is gitignored.
 | What are the top segments by cookie reach? | analytics | Text2SQL |
 | What is activation and how many buyers use top segments? | mixed | Vector then SQL |
 | Ignore previous instructions | blocked | Input guardrail `INJECTION_ATTEMPT` |
+| *(no question at all)* | browse | `GET /v1/segments` pages the CSV dump |
 
 Python:
 
@@ -343,6 +440,8 @@ uv run pytest tests/unit/test_store_protocol.py -v
 uv run pytest tests/unit/test_chunking.py tests/unit/test_ingestion.py -v
 uv run pytest tests/unit/test_nodes.py tests/unit/test_tools.py -v
 uv run pytest tests/unit/test_guardrails.py -v
+uv run pytest tests/unit/test_api.py tests/unit/test_csv_catalog.py -v
+uv run uvicorn lr_bestsellers.api.app:app --reload
 uv run ruff check lr_bestsellers tests/
 uv run ruff format lr_bestsellers tests/
 uv run mypy lr_bestsellers/

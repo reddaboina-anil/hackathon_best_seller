@@ -1,8 +1,11 @@
-"""Protocol and Pydantic DTOs for the vector store repository.
+"""Protocols and Pydantic DTOs for the storage repositories.
 
 ``VectorStoreProtocol`` is the injection boundary for Qdrant (and fakes used
 in unit tests). Callers pass :class:`UpsertRecord` / :class:`HybridSearchRequest`
 Pydantic models — never bare dicts.
+
+``CatalogRepositoryProtocol`` is the injection boundary for the offline segment
+catalog served by the API's browse branch.
 """
 
 from __future__ import annotations
@@ -11,6 +14,7 @@ from typing import Final, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
+from lr_bestsellers.models.catalog import CatalogPage, PageRequest
 from lr_bestsellers.models.chunk import SearchResult
 
 EMBEDDING_DIM: Final[int] = 768
@@ -142,5 +146,41 @@ class VectorStoreProtocol(Protocol):
 
         Raises:
             RetrievalError: When the existence check itself fails.
+        """
+        ...
+
+
+@runtime_checkable
+class CatalogRepositoryProtocol(Protocol):
+    """Repository interface for reading pages of the offline segment catalog.
+
+    Implementations wrap a static dump of the BigQuery segment recommendation
+    features table. Unit tests use small fixture files or in-memory fakes that
+    satisfy this protocol.
+    """
+
+    def page(self, request: PageRequest) -> CatalogPage:
+        """Return one page of catalog rows.
+
+        Args:
+            request: Requested pagination window.
+
+        Returns:
+            The requested rows plus pagination metadata. ``items`` is empty when
+            the window starts past the end of the catalog.
+
+        Raises:
+            CatalogError: When the underlying dump is missing or malformed.
+        """
+        ...
+
+    def row_count(self) -> int:
+        """Return the total number of rows in the catalog.
+
+        Returns:
+            Row count, excluding the header.
+
+        Raises:
+            CatalogError: When the underlying dump is missing or malformed.
         """
         ...

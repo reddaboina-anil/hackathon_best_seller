@@ -11,6 +11,7 @@ Hierarchy::
     ├── EmbeddingError
     ├── SQLGenerationError
     ├── IngestionError
+    ├── CatalogError
     ├── ThresholdNotMetError
     └── GuardrailError
         ├── InputGuardrailError
@@ -70,6 +71,17 @@ class IngestionError(BestSellersError):
 
     Example:
         >>> raise IngestionError("Failed to upsert batch of 50 chunks into 'segment_catalog'")
+    """
+
+
+class CatalogError(BestSellersError):
+    """Raised when the offline CSV segment catalog cannot be read or parsed.
+
+    Typical causes: the dump file is missing, unreadable, or a row does not
+    match the expected column schema.
+
+    Example:
+        >>> raise CatalogError("CSV catalog not found at csv_dump/segments.csv")
     """
 
 

@@ -9,6 +9,7 @@ object directly.
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Final, Literal
 
 from pydantic import AliasChoices, Field, SecretStr
@@ -19,6 +20,9 @@ DEFAULT_LLM_MODEL: Final[str] = "gemini-2.0-flash"
 
 DEFAULT_EMBEDDING_MODEL: Final[str] = "gemini-embedding-2"
 """Default Gemini embedding model used when ``EMBEDDING_MODEL`` is unset."""
+
+DEFAULT_CSV_CATALOG_PATH: Final[Path] = Path("csv_dump/segment_recommendation_features.csv")
+"""Default location of the BigQuery CSV dump used when ``CSV_CATALOG_PATH`` is unset."""
 
 
 class Settings(BaseSettings):
@@ -32,6 +36,7 @@ class Settings(BaseSettings):
         llm_model: Gemini chat model id (default ``gemini-2.0-flash``).
         embedding_model: Gemini embedding model id (default ``gemini-embedding-2``).
         bigquery_project: GCP project ID that owns the BigQuery dataset.
+        csv_catalog_path: Path to the offline BigQuery CSV dump.
         qdrant_url: Qdrant server URL (default ``http://localhost:6333``).
         qdrant_api_key: Qdrant Cloud API key; ``None`` for local instances.
         langsmith_api_key: LangSmith tracing API key (optional).
@@ -96,6 +101,20 @@ class Settings(BaseSettings):
         description=(
             "Path to a GCP service-account JSON key. When None, the BigQuery "
             "client falls back to Application Default Credentials (ADC)."
+        ),
+    )
+
+    # ── CSV catalog (offline BigQuery dump) ──────────────────────────────────
+    csv_catalog_path: Path = Field(
+        DEFAULT_CSV_CATALOG_PATH,
+        validation_alias=AliasChoices(
+            "csv_catalog_path",
+            "CSV_CATALOG_PATH",
+            "CSV_DUMP_PATH",
+        ),
+        description=(
+            "Path to the segment recommendation features CSV dump served by the "
+            "browse branch of the segments API."
         ),
     )
 
