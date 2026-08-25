@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
+import structlog
 from pydantic import BaseModel, Field
 
 from lr_bestsellers.store.protocols import UpsertRecord
 from lr_bestsellers.utils.embeddings import EmbedderProtocol
+
+log = structlog.get_logger(__name__)
 
 
 class RawDocument(BaseModel):
@@ -119,6 +122,25 @@ def embed_and_upsert(
     Returns:
         Number of points upserted.
     """
+    pager = getattr(source, "iter_pages", None)
+    if callable(pager):
+        total = 0
+        upsert = getattr(store, "upsert")
+        for page_index, documents in enumerate(pager()):
+            if not documents:
+                continue
+            vectors = embedder.embed_documents([doc.text for doc in documents])
+            records = documents_to_records(documents, vectors)
+            n = int(upsert(source.collection, records))
+            total += n
+            log.info(
+                "ingest.page_upserted",
+                source=source.name,
+                page=page_index,
+                upserted=n,
+                total=total,
+            )
+        return total
     documents = source.load()
     if not documents:
         return 0

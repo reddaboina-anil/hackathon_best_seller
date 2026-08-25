@@ -33,14 +33,14 @@ def _can_reach_bq() -> bool:
 
 @pytest.mark.skipif(not _can_reach_bq(), reason="BigQuery credentials are not configured")
 def test_bestsellers_sql_returns_rows() -> None:
-    """Running best_sellers.sql returns at least one catalog row."""
+    """Running segment_catalog.sql returns at least one catalog row."""
     settings = Settings(
         google_api_key=os.environ.get("GOOGLE_API_KEY", "test-key"),
         bigquery_project=os.environ.get("BIGQUERY_PROJECT", "liveramp-eng-qa-reliability"),
         google_application_credentials=os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"),
     )
     root = Path(__file__).resolve().parents[2]
-    source = BigQueryIngestionSource(settings, root / "best_sellers.sql")
+    source = BigQueryIngestionSource(settings, root / "segment_catalog.sql")
     docs = source.load()
     assert docs
     assert docs[0].dms_segment_id

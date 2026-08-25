@@ -81,8 +81,9 @@ Every public function, class, and method uses Google-style docstrings
 lr_bestsellers/
 ├── main.py                          # query(text) + CLI (delegates to service.py)
 ├── docker-compose.yml               # local Qdrant
-├── best_sellers.sql                 # live catalog + metrics SQL
+├── best_sellers.sql                 # live catalog + metrics SQL (query time)
 ├── csv_dump/*.csv                   # offline BigQuery dump served in browse mode
+├── segment_catalog.sql              # Qdrant ingest: names + descriptions only
 ├── knowledge_base/*.md              # domain docs + glossary
 ├── lr_bestsellers/
 │   ├── __init__.py                  # query(QueryRequest), ingest()

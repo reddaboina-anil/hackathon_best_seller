@@ -1,7 +1,7 @@
 -- BigQuery Standard SQL
-
-DECLARE top_percent FLOAT64 DEFAULT 0.10; -- Top 10%
-DECLARE top_n INT64 DEFAULT 100;          -- Top 100 by reach
+-- Top 10% (0.10) and top 100 by reach are inlined so this is a single
+-- query job. DECLARE would make the Python client submit a script, which
+-- sits in RUNNING with no row progress until every statement finishes.
 
 WITH syndicated_segments AS (
   SELECT
@@ -229,7 +229,7 @@ classified_segments AS (
 
     (
       active_destination_accounts > 0
-      AND distribution_rank <= CEIL(total_segments * top_percent)
+      AND distribution_rank <= CEIL(total_segments * 0.10)
     ) AS is_highly_distributed,
 
     (
@@ -238,7 +238,7 @@ classified_segments AS (
         OR ios_reach > 0
         OR android_reach > 0
       )
-      AND reach_rank <= CEIL(total_segments * top_percent)
+      AND reach_rank <= CEIL(total_segments * 0.10)
     ) AS is_highly_reachable,
 
     (
@@ -247,7 +247,7 @@ classified_segments AS (
         OR ios_reach > 0
         OR android_reach > 0
       )
-      AND reach_rank <= top_n
+      AND reach_rank <= 100
     ) AS is_top_n_by_reach
 
   FROM ranked_segments
