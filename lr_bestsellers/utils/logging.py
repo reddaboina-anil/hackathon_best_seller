@@ -24,6 +24,7 @@ from __future__ import annotations
 import logging
 import logging.handlers
 import sys
+from pathlib import Path
 from typing import Any
 
 import structlog
@@ -50,7 +51,7 @@ def configure_logging(
 
     When ``log_file`` is provided a ``RotatingFileHandler`` is added that
     writes the identical JSON stream to ``log_file``.  The parent directory
-    of ``log_file`` must already exist.
+    is created automatically if it does not exist.
 
     Args:
         log_level: Standard Python log level name, e.g. ``"INFO"``, ``"DEBUG"``.
@@ -106,6 +107,7 @@ def configure_logging(
 
     # Optionally write the same JSON stream to a rotating file.
     if log_file:
+        Path(log_file).parent.mkdir(parents=True, exist_ok=True)
         file_handler = logging.handlers.RotatingFileHandler(
             log_file,
             maxBytes=log_max_bytes,
