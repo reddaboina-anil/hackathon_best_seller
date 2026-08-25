@@ -1,0 +1,74 @@
+[project]
+name = "lr-bestsellers"
+version = "0.1.0"
+description = "Hybrid Agentic RAG + Text2SQL system for querying LiveRamp syndicated segments."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "langchain-google-genai>=2.0",
+    "langgraph>=0.2",
+    "langchain-qdrant>=0.2",
+    "qdrant-client>=1.9",
+    "google-cloud-bigquery>=3.0",
+    "langchain-community>=0.3",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "structlog>=24.0",
+    "ragas>=0.1",
+    "langsmith>=0.1",
+]
+
+[project.optional-dependencies]
+api = ["fastapi>=0.111", "uvicorn[standard]>=0.29"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+native-tls = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lr_bestsellers"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-ra -q"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "ANN", "D"]
+ignore = ["D100", "D104", "ANN401", "E501"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = [
+    "qdrant_client.*",
+    "google.*",
+    "google.cloud.*",
+    "google.oauth2.*",
+    "langchain_google_genai.*",
+    "langchain_core.*",
+    "langgraph.*",
+]
+ignore_missing_imports = true
