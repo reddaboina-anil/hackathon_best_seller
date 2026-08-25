@@ -111,10 +111,17 @@ reach_metrics AS (
 */
 connect_platform_reach AS (
   SELECT
-    r.dms_segment_id,
-
+    dms_segment_id,
     STRING_AGG(
-      DISTINCT CONCAT(
+      platform_reach_label,
+      '; '
+      ORDER BY platform_name
+    ) AS reach_by_platform
+  FROM (
+    SELECT DISTINCT
+      r.dms_segment_id,
+      platform_customer.customer_name AS platform_name,
+      CONCAT(
         platform_customer.customer_name,
         ': ',
         CAST(
@@ -122,26 +129,19 @@ connect_platform_reach AS (
             r.cookie_reach * platform.cookie_overlap_percentage
           ) AS STRING
         )
-      ),
-      '; '
-      ORDER BY platform_customer.customer_name
-    ) AS reach_by_platform
-
-  FROM reach_metrics r
-
-  INNER JOIN `liveramp-eng-pie.entities.fin_marketplace_platforms` platform
-    ON platform.is_connect_enabled = TRUE
-   AND platform.is_data_store_enabled = TRUE
-   AND platform.is_stats_visible = TRUE
-   AND platform.cookie_overlap_percentage IS NOT NULL
-
-  INNER JOIN `liveramp-eng-pie.entities.fin_connect_customers` platform_customer
-    ON platform.platform_customer_id = platform_customer.customer_id
-
-  WHERE r.cookie_reach IS NOT NULL
-
+      ) AS platform_reach_label
+    FROM reach_metrics r
+    INNER JOIN `liveramp-eng-pie.entities.fin_marketplace_platforms` platform
+      ON platform.is_connect_enabled = TRUE
+     AND platform.is_data_store_enabled = TRUE
+     AND platform.is_stats_visible = TRUE
+     AND platform.cookie_overlap_percentage IS NOT NULL
+    INNER JOIN `liveramp-eng-pie.entities.fin_connect_customers` platform_customer
+      ON platform.platform_customer_id = platform_customer.customer_id
+    WHERE r.cookie_reach IS NOT NULL
+  )
   GROUP BY
-    r.dms_segment_id
+    dms_segment_id
 ),
 
 /* Combine segment, distribution, and reach metrics */
