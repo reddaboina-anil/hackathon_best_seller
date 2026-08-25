@@ -22,7 +22,8 @@ from lr_bestsellers.utils.chunking import count_tokens
 
 log = structlog.get_logger(__name__)
 
-_BQ_READONLY_SCOPE = "https://www.googleapis.com/auth/bigquery.readonly"
+# jobs.insert (used by client.query) is not allowed on bigquery.readonly.
+_BQ_SCOPE = "https://www.googleapis.com/auth/bigquery"
 
 
 def build_bigquery_client(settings: Settings) -> bigquery.Client:
@@ -44,7 +45,7 @@ def build_bigquery_client(settings: Settings) -> bigquery.Client:
         try:
             credentials = service_account.Credentials.from_service_account_file(  # type: ignore[no-untyped-call]
                 settings.google_application_credentials,
-                scopes=[_BQ_READONLY_SCOPE],
+                scopes=[_BQ_SCOPE],
             )
         except (OSError, ValueError) as exc:
             log.error(

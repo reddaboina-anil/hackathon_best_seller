@@ -212,8 +212,8 @@ def build_node_context(
         )
         active_bq: BigQueryRunner | FakeBqRunner = bq or FakeBqRunner()
     else:
-        embedder = GoogleEmbedder(api_key=api_key)
-        active_llm = llm or GeminiLLM(api_key=api_key)
+        embedder = GoogleEmbedder(api_key=api_key, model=settings.embedding_model)
+        active_llm = llm or GeminiLLM(api_key=api_key, model=settings.llm_model)
         if bq is not None:
             active_bq = bq
         else:

@@ -85,7 +85,7 @@ uv run python -m lr_bestsellers refresh --reset
 
 ```mermaid
 flowchart TD
-    Q["User query"] --> Embed["text-embedding-004"]
+    Q["User query"] --> Embed["gemini-embedding-2"]
     Embed --> BM25["Sparse BM25-style search"]
     Embed --> Dense["Dense cosine search"]
     BM25 --> RRF["Reciprocal Rank Fusion"]
@@ -141,21 +141,121 @@ flowchart TB
     Fake["FakeVectorStore\nunit tests"] -.-> Client
 ```
 
-Local Qdrant:
+---
+
+## Local setup
+
+**Prerequisites:** Docker Desktop, Python **3.13**, [uv](https://docs.astral.sh/uv/), a Gemini API key, and (for live SQL) GCP access to the BigQuery **billing** project.
+
+### 1. Clone and install
+
+```bash
+git clone <repo-url>
+cd hackathon_best_seller
+uv sync
+```
+
+### 2. Start Qdrant locally
+
+`docker-compose.yml` runs Qdrant `v1.13.4` with REST on port `6333` and gRPC on `6334`. Vectors persist in the Docker volume `qdrant_storage`.
 
 ```bash
 docker compose up -d
+docker compose ps
+curl -s http://localhost:6333/readyz
 ```
+
+A healthy instance returns HTTP 200. The dashboard is at [http://localhost:6333/dashboard](http://localhost:6333/dashboard).
+
+Leave `QDRANT_URL=http://localhost:6333` and do **not** set `QDRANT_API_KEY` for local Docker. For Qdrant Cloud, set both the cluster URL and API key.
+
+```bash
+# Inspect collections after ingest
+curl -s http://localhost:6333/collections | python -m json.tool
+
+# Stop Qdrant (keep stored vectors)
+docker compose down
+
+# Stop and delete the volume (wipe local collections)
+docker compose down -v
+```
+
+### 3. Create `.env` and fill credentials
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` — never commit it or a service-account JSON.
+
+| What you need | Variable | How to get it |
+|---|---|---|
+| Gemini + embeddings | `GOOGLE_API_KEY` | [Google AI Studio](https://aistudio.google.com/app/apikey). Alias: `GEMINI_API_KEY`. |
+| BigQuery **billing** project | `BIGQUERY_PROJECT` | GCP project that pays for jobs (for example `liveramp-eng-qa-reliability`). Alias: `BQ_PROJECT`. Data tables stay fully qualified in `best_sellers.sql`. |
+| BigQuery auth (local) | `GOOGLE_APPLICATION_CREDENTIALS` | Absolute path to a service-account JSON. Uncomment the line in `.env`. On GKE / Cloud Run, leave unset and use ADC. |
+| Local Qdrant | `QDRANT_URL` | Default `http://localhost:6333`. |
+| Qdrant Cloud only | `QDRANT_API_KEY` | Leave blank for local Docker. |
+
+Settings load from `.env` at process start via `get_settings()`. After you change keys or the credentials path, restart the CLI / process. Re-run `refresh` if you need new embeddings after rotating `GOOGLE_API_KEY`.
+
+**Example `.env` (local laptop):**
+
+```bash
+GOOGLE_API_KEY=AIzaSy...your-studio-key
+
+BIGQUERY_PROJECT=liveramp-eng-qa-reliability
+GOOGLE_APPLICATION_CREDENTIALS=/Users/yourname/.gcp/lr-bestsellers-sa.json
+
+QDRANT_URL=http://localhost:6333
+# QDRANT_API_KEY=   # leave unset locally
+
+ENVIRONMENT=development
+LOG_LEVEL=INFO
+```
+
+### 4. Authenticate to GCP (if you are not using a service-account file)
+
+```bash
+gcloud auth application-default login
+gcloud config set project liveramp-eng-qa-reliability
+```
+
+### 5. Ingest into Qdrant
+
+```bash
+uv run python -m lr_bestsellers refresh
+```
+
+This loads `knowledge_base/*.md` into `domain_knowledge`, `glossary.md` into `glossary`, and `best_sellers.sql` into `segment_catalog` (names and descriptions only; live metrics stay in BigQuery). A placeholder `GOOGLE_API_KEY` uses a hash embedder so you can still stand up the collections.
+
+Useful variants:
+
+```bash
+uv run python -m lr_bestsellers refresh --source glossary
+uv run python -m lr_bestsellers refresh --source bq
+uv run python -m lr_bestsellers refresh --file knowledge_base/activation.md
+uv run python -m lr_bestsellers refresh --reset   # wipe collections, then re-ingest
+```
+
+### 6. Ask a question
+
+```bash
+uv run python main.py "What are the top segments by cookie reach?"
+```
+
+Conceptual check after glossary ingest: `uv run python main.py "What is cookie_reach?"` — expect a cited answer with `[Source: …]`.
 
 ---
 
 ## Quick start
 
-1. Copy `.env.example` to `.env` and set `GOOGLE_API_KEY` plus `BIGQUERY_PROJECT`.
-2. Start Qdrant: `docker compose up -d`
-3. Install: `uv sync`
-4. Ingest: `uv run python -m lr_bestsellers refresh` (uses a hash embedder if the API key is still a placeholder)
-5. Ask: `uv run python main.py "What are the top segments by cookie reach?"`
+If the stack is already familiar:
+
+1. `cp .env.example .env` and set `GOOGLE_API_KEY` plus `BIGQUERY_PROJECT` (and optionally `GOOGLE_APPLICATION_CREDENTIALS`).
+2. `docker compose up -d` then `curl -s http://localhost:6333/readyz`
+3. `uv sync`
+4. `uv run python -m lr_bestsellers refresh`
+5. `uv run python main.py "What are the top segments by cookie reach?"`
 
 ### Troubleshooting: `invalid peer certificate: UnknownIssuer`
 
@@ -184,7 +284,9 @@ uv run --allow-insecure-host pypi.org --allow-insecure-host files.pythonhosted.o
 
 | Variable | Settings field | Meaning |
 |---|---|---|
-| `GOOGLE_API_KEY` | `google_api_key` | Gemini + `text-embedding-004` |
+| `GOOGLE_API_KEY` | `google_api_key` | Gemini + embeddings |
+| `LLM_MODEL` / `GEMINI_MODEL` | `llm_model` | Chat model (default `gemini-2.0-flash`) |
+| `EMBEDDING_MODEL` | `embedding_model` | Embeddings (default `gemini-embedding-2`) |
 | `BIGQUERY_PROJECT` | `bigquery_project` / `bq_project` | **Billing** project for jobs |
 | `GOOGLE_APPLICATION_CREDENTIALS` | `google_application_credentials` | Optional SA JSON path; else ADC |
 | `QDRANT_URL` | `qdrant_url` | Default `http://localhost:6333` |
@@ -241,9 +343,9 @@ uv run pytest tests/unit/test_store_protocol.py -v
 uv run pytest tests/unit/test_chunking.py tests/unit/test_ingestion.py -v
 uv run pytest tests/unit/test_nodes.py tests/unit/test_tools.py -v
 uv run pytest tests/unit/test_guardrails.py -v
-uv run ruff check src/ tests/
-uv run ruff format src/ tests/
-uv run mypy src/
+uv run ruff check lr_bestsellers tests/
+uv run ruff format lr_bestsellers tests/
+uv run mypy lr_bestsellers/
 uv run python tests/evals/run_evals.py
 uv run python tests/evals/run_evals.py --report
 ```

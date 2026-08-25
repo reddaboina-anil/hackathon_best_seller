@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from lr_bestsellers.config import Settings
+from lr_bestsellers.config import DEFAULT_EMBEDDING_MODEL, DEFAULT_LLM_MODEL, Settings
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -45,20 +45,42 @@ def make_settings(**overrides: object) -> Settings:
 class TestRequiredFields:
     """Tests that required fields without defaults are enforced."""
 
-    def test_missing_google_api_key(self) -> None:
+    def test_missing_google_api_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Omitting google_api_key raises ValidationError."""
+        monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         with pytest.raises(ValidationError):
-            Settings(bigquery_project="proj")  # type: ignore[call-arg]
+            Settings(bigquery_project="proj", _env_file=None)  # type: ignore[call-arg]
 
-    def test_missing_bigquery_project(self) -> None:
+    def test_missing_bigquery_project(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Omitting bigquery_project raises ValidationError."""
+        monkeypatch.delenv("BIGQUERY_PROJECT", raising=False)
+        monkeypatch.delenv("BQ_PROJECT", raising=False)
         with pytest.raises(ValidationError):
-            Settings(google_api_key="key")  # type: ignore[call-arg]
+            Settings(google_api_key="key", _env_file=None)  # type: ignore[call-arg]
 
     def test_all_required_present(self) -> None:
         """Settings constructed successfully when all required fields provided."""
         settings = make_settings()
         assert settings.bigquery_project == "my-gcp-project"
+
+    def test_gemini_and_bq_aliases_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """GEMINI_API_KEY and BQ_PROJECT satisfy the required Settings fields."""
+        monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+        monkeypatch.delenv("BIGQUERY_PROJECT", raising=False)
+        monkeypatch.setenv("GEMINI_API_KEY", "alias-gemini-key")
+        monkeypatch.setenv("BQ_PROJECT", "alias-billing-project")
+        settings = Settings(_env_file=None)  # type: ignore[call-arg]
+        assert settings.google_api_key.get_secret_value() == "alias-gemini-key"
+        assert settings.bigquery_project == "alias-billing-project"
+
+    def test_model_aliases_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """GEMINI_MODEL and EMBEDDING_MODEL override the chat and embed ids."""
+        monkeypatch.setenv("GEMINI_MODEL", "gemini-2.5-flash")
+        monkeypatch.setenv("EMBEDDING_MODEL", "gemini-embedding-001")
+        settings = make_settings()
+        assert settings.llm_model == "gemini-2.5-flash"
+        assert settings.embedding_model == "gemini-embedding-001"
 
 
 # ---------------------------------------------------------------------------
@@ -104,6 +126,19 @@ class TestDefaults:
     def test_langsmith_project_default(self) -> None:
         """langsmith_project defaults to 'lr-bestsellers'."""
         assert make_settings().langsmith_project == "lr-bestsellers"
+
+    def test_llm_and_embedding_model_defaults(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Chat and embedding models default to the current Gemini ids."""
+        monkeypatch.delenv("LLM_MODEL", raising=False)
+        monkeypatch.delenv("GEMINI_MODEL", raising=False)
+        monkeypatch.delenv("EMBEDDING_MODEL", raising=False)
+        settings = Settings(
+            google_api_key="fake-api-key",
+            bigquery_project="my-gcp-project",
+            _env_file=None,  # type: ignore[call-arg]
+        )
+        assert settings.llm_model == DEFAULT_LLM_MODEL
+        assert settings.embedding_model == DEFAULT_EMBEDDING_MODEL
 
 
 # ---------------------------------------------------------------------------

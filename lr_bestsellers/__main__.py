@@ -34,12 +34,15 @@ SourceName = Literal["files", "bq", "glossary", "all"]
 
 
 def repo_root() -> Path:
-    """Return the repository root (parent of ``src/``).
+    """Return the process working directory.
+
+    ``uv run`` is invoked from the repository root, so this is
+    ``hackathon_best_seller`` (knowledge_base, best_sellers.sql, ``.env``).
 
     Returns:
-        Absolute path to the project root.
+        Absolute path to the current working directory.
     """
-    return Path(__file__).resolve().parents[2]
+    return Path.cwd()
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -90,7 +93,7 @@ def _make_embedder(settings: Settings) -> EmbedderProtocol:
     if key.startswith("your-") or key == "fake-api-key":
         log.warning("embedder.hash_fallback", reason="placeholder google_api_key")
         return HashEmbedder()
-    return GoogleEmbedder(api_key=key)
+    return GoogleEmbedder(api_key=key, model=settings.embedding_model)
 
 
 def _make_store(settings: Settings) -> QdrantRepository:

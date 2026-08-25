@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from typing import Protocol, runtime_checkable
 
+from lr_bestsellers.config import DEFAULT_EMBEDDING_MODEL
 from lr_bestsellers.store.protocols import EMBEDDING_DIM
 
 
@@ -82,23 +83,34 @@ def _hash_vector(text: str) -> list[float]:
 
 
 class GoogleEmbedder:
-    """``text-embedding-004`` client wrapping LangChain Google embeddings.
+    """Gemini embedding client wrapping LangChain Google embeddings.
+
+    Uses the configured model with ``output_dimensionality=768`` so vectors
+    stay compatible with existing Qdrant collections.
 
     Args:
         api_key: Gemini / Google AI Studio API key.
+        model: Gemini embedding model id.
     """
 
-    def __init__(self, api_key: str) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        model: str = DEFAULT_EMBEDDING_MODEL,
+    ) -> None:
         """Create the LangChain embeddings client.
 
         Args:
             api_key: API key string.
+            model: Embedding model id (from ``Settings.embedding_model``).
         """
         from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
+        self._model = model
         self._client = GoogleGenerativeAIEmbeddings(
-            model="models/text-embedding-004",
+            model=model,
             google_api_key=api_key,
+            output_dimensionality=EMBEDDING_DIM,
         )
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
@@ -120,7 +132,7 @@ class GoogleEmbedder:
         try:
             return self._client.embed_documents(texts)
         except Exception as exc:
-            raise EmbeddingError("text-embedding-004 embed_documents failed") from exc
+            raise EmbeddingError(f"{self._model} embed_documents failed") from exc
 
     def embed_query(self, text: str) -> list[float]:
         """Embed a query via the Google API.
@@ -139,4 +151,4 @@ class GoogleEmbedder:
         try:
             return self._client.embed_query(text)
         except Exception as exc:
-            raise EmbeddingError("text-embedding-004 embed_query failed") from exc
+            raise EmbeddingError(f"{self._model} embed_query failed") from exc

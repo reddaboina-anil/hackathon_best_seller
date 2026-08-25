@@ -47,7 +47,7 @@ class EmbeddingError(BestSellersError):
     Typical causes: invalid API key, quota exceeded, or a malformed payload.
 
     Example:
-        >>> raise EmbeddingError("text-embedding-004 request timed out")
+        >>> raise EmbeddingError("gemini-embedding-2 request timed out")
     """
 
 

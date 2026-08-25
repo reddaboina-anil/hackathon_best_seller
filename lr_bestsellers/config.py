@@ -9,10 +9,16 @@ object directly.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Literal
+from typing import Final, Literal
 
-from pydantic import Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DEFAULT_LLM_MODEL: Final[str] = "gemini-2.0-flash"
+"""Default Gemini chat model used when ``LLM_MODEL`` is unset."""
+
+DEFAULT_EMBEDDING_MODEL: Final[str] = "gemini-embedding-2"
+"""Default Gemini embedding model used when ``EMBEDDING_MODEL`` is unset."""
 
 
 class Settings(BaseSettings):
@@ -22,7 +28,9 @@ class Settings(BaseSettings):
     at startup if they are absent from the environment or ``.env`` file.
 
     Attributes:
-        google_api_key: Gemini 2.0 Flash + text-embedding-004 API key.
+        google_api_key: Gemini API key for the chat and embedding models.
+        llm_model: Gemini chat model id (default ``gemini-2.0-flash``).
+        embedding_model: Gemini embedding model id (default ``gemini-embedding-2``).
         bigquery_project: GCP project ID that owns the BigQuery dataset.
         qdrant_url: Qdrant server URL (default ``http://localhost:6333``).
         qdrant_api_key: Qdrant Cloud API key; ``None`` for local instances.
@@ -45,12 +53,26 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        populate_by_name=True,
     )
 
     # ── Google / Gemini ──────────────────────────────────────────────────────
     google_api_key: SecretStr = Field(
         ...,
-        description="Gemini 2.0 Flash + text-embedding-004 API key.",
+        validation_alias=AliasChoices("google_api_key", "GOOGLE_API_KEY", "GEMINI_API_KEY"),
+        description="Gemini API key for the configured chat and embedding models.",
+    )
+    llm_model: str = Field(
+        DEFAULT_LLM_MODEL,
+        min_length=1,
+        validation_alias=AliasChoices("llm_model", "LLM_MODEL", "GEMINI_MODEL"),
+        description="Gemini chat model id.",
+    )
+    embedding_model: str = Field(
+        DEFAULT_EMBEDDING_MODEL,
+        min_length=1,
+        validation_alias=AliasChoices("embedding_model", "EMBEDDING_MODEL"),
+        description="Gemini embedding model id.",
     )
 
     # ── BigQuery ─────────────────────────────────────────────────────────────
@@ -59,6 +81,11 @@ class Settings(BaseSettings):
     # (e.g. `liveramp-eng-pie.entities.*`).
     bigquery_project: str = Field(
         ...,
+        validation_alias=AliasChoices(
+            "bigquery_project",
+            "BIGQUERY_PROJECT",
+            "BQ_PROJECT",
+        ),
         description=(
             "GCP billing project for BigQuery jobs (e.g. liveramp-eng-qa-reliability). "
             "Data tables are fully qualified in best_sellers.sql."

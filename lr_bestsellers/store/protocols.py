@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from lr_bestsellers.models.chunk import SearchResult
 
 EMBEDDING_DIM: Final[int] = 768
-"""Dense embedding dimensionality for ``text-embedding-004``."""
+"""Dense embedding dimensionality (``gemini-embedding-2`` Matryoshka 768)."""
 
 DENSE_VECTOR_NAME: Final[str] = "dense"
 """Named dense vector in Qdrant collections."""
@@ -69,7 +69,7 @@ class HybridSearchRequest(BaseModel):
     Attributes:
         collection: Target Qdrant collection name.
         query_text: Raw query used to build the sparse vector.
-        dense_vector: Query embedding from ``text-embedding-004``.
+        dense_vector: Query embedding from ``gemini-embedding-2``.
         top_k: Maximum number of fused results to return.
     """
 

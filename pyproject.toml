@@ -29,7 +29,7 @@ build-backend = "hatchling.build"
 native-tls = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/lr_bestsellers"]
+packages = ["lr_bestsellers"]
 
 [dependency-groups]
 dev = [

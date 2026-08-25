@@ -19,7 +19,7 @@ from lr_bestsellers.agent.tools import (
     format_search_results,
     run_hybrid_search,
 )
-from lr_bestsellers.config import Settings
+from lr_bestsellers.config import DEFAULT_LLM_MODEL, Settings
 from lr_bestsellers.models.query import BqQueryRequest, QueryIntent, SourceCitation, SqlRow
 from lr_bestsellers.store.protocols import (
     COLLECTION_DOMAIN_KNOWLEDGE,
@@ -127,22 +127,28 @@ class FakeLLM:
 
 
 class GeminiLLM:
-    """Gemini 2.0 Flash wrapper.
+    """Gemini chat wrapper.
 
     Args:
         api_key: Google AI Studio key.
+        model: Gemini chat model id.
     """
 
-    def __init__(self, api_key: str) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        model: str = DEFAULT_LLM_MODEL,
+    ) -> None:
         """Create the chat model.
 
         Args:
             api_key: API key.
+            model: Chat model id (from ``Settings.llm_model``).
         """
         from langchain_google_genai import ChatGoogleGenerativeAI
 
         self._model = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash",
+            model=model,
             google_api_key=api_key,
             temperature=0.0,
         )

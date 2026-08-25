@@ -1,7 +1,7 @@
 # AGENTS.md — lr-bestsellers AI Agent Coding Guide
 
 > **Status**: Complete through Milestone 7. Keep this file in lockstep with the
-> tree under `src/lr_bestsellers/`.
+> tree under `lr_bestsellers/`.
 
 ---
 
@@ -13,7 +13,7 @@ grounded, cited answers backed by Qdrant vector search and live BigQuery
 queries.
 
 **Tech stack**: Python 3.13 · uv · LangGraph · Gemini 2.0 Flash ·
-text-embedding-004 · Qdrant · BigQuery · pydantic v2 · structlog
+gemini-embedding-2 · Qdrant · BigQuery · pydantic v2 · structlog
 
 **Billing vs data**: `Settings.bigquery_project` (`bq_project`) is the GCP
 **billing** project. Data tables are fully qualified in `best_sellers.sql`.
@@ -79,7 +79,7 @@ lr_bestsellers/
 ├── docker-compose.yml               # local Qdrant
 ├── best_sellers.sql                 # live catalog + metrics SQL
 ├── knowledge_base/*.md              # domain docs + glossary
-├── src/lr_bestsellers/
+├── lr_bestsellers/
 │   ├── __init__.py                  # query(QueryRequest), ingest()
 │   ├── __main__.py                  # `python -m lr_bestsellers refresh`
 │   ├── config.py                    # Settings + get_settings()
@@ -115,9 +115,9 @@ lr_bestsellers/
 ```bash
 uv sync
 uv run pytest tests/unit/ -v
-uv run ruff check src/ tests/
-uv run ruff format src/ tests/
-uv run mypy src/
+uv run ruff check lr_bestsellers tests/
+uv run ruff format lr_bestsellers tests/
+uv run mypy lr_bestsellers/
 uv run python -m lr_bestsellers refresh
 uv run python tests/evals/run_evals.py --report
 uv run python main.py "What are the top segments by cookie reach?"
@@ -129,7 +129,7 @@ uv run python main.py "What are the top segments by cookie reach?"
 
 ### 5.1 Add a new LangGraph tool
 
-1. Add a Pydantic args model in `src/lr_bestsellers/agent/tools.py`.
+1. Add a Pydantic args model in `lr_bestsellers/agent/tools.py`.
 2. Factory-build a `StructuredTool` (inject `VectorStoreProtocol` / `BqRunnerProtocol`).
 3. Call the underlying helper from a node in `nodes.py` if the graph should use it
    unconditionally; otherwise bind the tool on the LLM.
