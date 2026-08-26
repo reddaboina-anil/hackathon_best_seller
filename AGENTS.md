@@ -13,8 +13,8 @@ grounded, cited answers backed by Qdrant vector search and live BigQuery
 queries.
 
 A FastAPI layer exposes one endpoint, `GET /v1/segments`, that either answers a
-question (`query` present) or pages an offline CSV dump of the BigQuery features
-table (`query` absent).
+question (`query` present → `AgentAnswer`) or pages the offline CSV catalog
+(`query` absent → `CatalogPage`).
 
 **Tech stack**: Python 3.13 · uv · LangGraph · Gemini 2.0 Flash ·
 gemini-embedding-2 · Qdrant · BigQuery · FastAPI · pydantic v2 · structlog
@@ -80,11 +80,21 @@ Every public function, class, and method uses Google-style docstrings
 ```
 lr_bestsellers/
 ├── main.py                          # query(text) + CLI (delegates to service.py)
-├── docker-compose.yml               # local Qdrant
+├── docker-compose.yml               # Qdrant + tag-compute + tag-api
 ├── best_sellers.sql                 # live catalog + metrics SQL (query time)
-├── csv_dump/*.csv                   # offline BigQuery dump served in browse mode
+├── compute_tags.sql                 # DuckDB CLI: 11 tags from the CSV dump
+├── csv_dump/*.csv                   # offline BigQuery dump (browse + tag-compute)
 ├── segment_catalog.sql              # Qdrant ingest: names + descriptions only
 ├── knowledge_base/*.md              # domain docs + glossary
+├── tag_api/                         # standalone tag HTTP API (port 8001)
+│   ├── Dockerfile                   # python:3.13-slim, no AI deps
+│   ├── main.py                      # create_app() + DuckDB lifespan + GET /healthz
+│   ├── config.py                    # Settings.tags_duckdb_path
+│   ├── models.py                    # TagDefinition, SegmentRow, SegmentsPage, TagsPage
+│   ├── store.py                     # TagStoreProtocol, DuckDbTagStore, EmptyTagStore
+│   ├── routes.py                    # GET /v1/tags, /segments, /segments/{id}/tags, /tags/{slug}/segments
+│   ├── dependencies.py              # get_tag_store() singleton
+│   └── exceptions.py                # TagStoreError, TagNotFoundError
 ├── lr_bestsellers/
 │   ├── __init__.py                  # query(QueryRequest), ingest()
 │   ├── __main__.py                  # `python -m lr_bestsellers refresh`
@@ -92,12 +102,12 @@ lr_bestsellers/
 │   ├── exceptions.py                # BestSellersError hierarchy
 │   ├── service.py                   # guarded query flow shared by CLI + API
 │   ├── api/app.py                   # create_app(), lifespan, exception handlers
-│   ├── api/routes.py                # GET /v1/segments (ask + browse branches)
+│   ├── api/routes.py                # GET /v1/segments (ask + CSV browse)
 │   ├── api/dependencies.py          # cached Settings + catalog repo providers
+│   ├── api/response_builder.py      # SegmentQueryResponse shaping
 │   ├── models/query.py              # QueryRequest/Response, SqlRow, citations
 │   ├── models/segment.py            # SegmentDocument
 │   ├── models/chunk.py              # ChildChunk, ParentChunk, SearchResult
-<<<<<<< HEAD
 │   ├── models/catalog.py            # SegmentFeatureRow, CatalogPage, AgentAnswer
 │   ├── store/protocols.py           # VectorStoreProtocol, UpsertRecord,
 │   │                                #   CatalogRepositoryProtocol,
@@ -131,8 +141,12 @@ lr_bestsellers/
 └── tests/unit|integration|evals/
     ├── tests/unit/test_nodes.py              # updated: 2-CTE fixture + assemble tests
     ├── tests/unit/test_platform_resolver.py  # new
-    └── tests/unit/test_query_patterns.py     # new: 10 deterministic assembly tests
+    ├── tests/unit/test_query_patterns.py     # new: 10 deterministic assembly tests
+    ├── tests/unit/test_compute_sql.py        # 11-tag DuckDB fixture for compute_tags.sql
 ```
+
+`tag_api/` is a **separate** Python project (own `pyproject.toml`, own venv). Do not import
+`lr_bestsellers` from it, and do not import `tag_api` from `lr_bestsellers`.
 
 ---
 
@@ -148,6 +162,13 @@ uv run python -m lr_bestsellers refresh
 uv run python tests/evals/run_evals.py --report
 uv run python main.py "What are the top segments by cookie reach?"
 uv run uvicorn lr_bestsellers.api.app:app --reload
+
+# Standalone tag API (no Gemini, no BigQuery, no secrets)
+cd tag_api && uv sync && uv run pytest tests/ -v && uv run ruff check . && uv run mypy .
+uv run pytest tests/unit/test_compute_sql.py -v
+docker compose stop tag-api
+docker compose --profile compute run --rm tag-compute
+docker compose up -d --wait --build --force-recreate tag-api
 ```
 
 ---
@@ -195,6 +216,16 @@ uv run uvicorn lr_bestsellers.api.app:app --reload
    let the handlers in `api/app.py` map them to status codes.
 4. Add request and error cases in `tests/unit/test_api.py`, and assert the schema
    change in `TestOpenApiSchema`.
+
+### 5.6 Add a segment recommendation tag
+
+The tag system is SQL-only. Edit `compute_tags.sql` — no Python, no Docker rebuild.
+
+1. Add a boolean column to the `tagged` SELECT (rule against `segment_dump` / `thresholds`).
+2. Add one VALUES row to `tag_definitions` (`tag_key`, display name, description, category, priority).
+3. Add the new column name to the `UNPIVOT ... FOR tag_key IN (...)` list.
+4. Extend `tests/unit/test_compute_sql.py` with a fixture assertion for the new rule.
+5. Recompute: `docker compose --profile compute run --rm tag-compute`.
 
 ---
 

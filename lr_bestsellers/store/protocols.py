@@ -5,7 +5,9 @@ in unit tests). Callers pass :class:`UpsertRecord` / :class:`HybridSearchRequest
 Pydantic models — never bare dicts.
 
 ``CatalogRepositoryProtocol`` is the injection boundary for the offline segment
-catalog served by the API's browse branch.
+catalog served by the API's browse branch. The production implementation wraps
+a static CSV dump of the BigQuery segment recommendation features table; unit
+tests use small fixture files or in-memory fakes.
 """
 
 from __future__ import annotations
@@ -186,4 +188,9 @@ class CatalogRepositoryProtocol(Protocol):
         Raises:
             CatalogError: When the underlying dump is missing or malformed.
         """
+        ...
+
+    @property
+    def source_name(self) -> str:
+        """Return the dump filename used as the ``source`` label in responses."""
         ...

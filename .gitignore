@@ -10,6 +10,7 @@ logs/
 
 # Python
 .venv/
+tag_api/.venv/
 *.py[oc]
 build/
 dist/
@@ -20,6 +21,12 @@ wheels/
 .pytest_cache/
 tests/evals/results/
 csv_dump/*
+csv_dump/best_sellers_output.csv
+
+# Computed DuckDB tag store (rebuilt by tag-compute)
+*.duckdb
+*.duckdb.wal
+duckdb_data/
 
 # BigQuery catalog CSV export (too large for git; generate with bq extract or BQ UI)
 dms_segments_best_sellers.csv

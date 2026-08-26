@@ -8,5 +8,44 @@ services:
       - qdrant_storage:/qdrant/storage
     restart: unless-stopped
 
+  tag-compute:
+    image: duckdb/duckdb
+    volumes:
+      - ./csv_dump:/workspace/csv_dump:ro
+      - ./compute_tags.sql:/workspace/compute_tags.sql:ro
+      - ./duckdb_data:/workspace/data
+    working_dir: /workspace
+    command:
+      [
+        "duckdb",
+        "/workspace/data/tags.duckdb",
+        "-init",
+        "/workspace/compute_tags.sql",
+        "-no-stdin",
+      ]
+    profiles: ["compute"]
+
+  tag-api:
+    build: ./tag_api
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./duckdb_data:/app/duckdb_data:ro
+    environment:
+      TAGS_DUCKDB_PATH: /app/duckdb_data/tags.duckdb
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/healthz')",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 3s
+
 volumes:
   qdrant_storage:
