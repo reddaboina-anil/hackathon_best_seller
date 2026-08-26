@@ -125,6 +125,7 @@ def embed_and_upsert(
     pager = getattr(source, "iter_pages", None)
     if callable(pager):
         total = 0
+        row_offset: int = getattr(source, "offset", 0)
         upsert = getattr(store, "upsert")
         for page_index, documents in enumerate(pager()):
             if not documents:
@@ -139,6 +140,7 @@ def embed_and_upsert(
                 page=page_index,
                 upserted=n,
                 total=total,
+                total_absolute=row_offset + total,
             )
         return total
     documents = source.load()

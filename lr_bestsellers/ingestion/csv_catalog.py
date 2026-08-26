@@ -74,6 +74,18 @@ class CsvCatalogIngestionSource:
         return "csv"
 
     @property
+    def offset(self) -> int:
+        """Number of data rows skipped at the start of this run.
+
+        Used by :func:`~lr_bestsellers.ingestion.protocols.embed_and_upsert`
+        to log an absolute row position alongside the per-run counter.
+
+        Returns:
+            The ``skip_rows`` value supplied at construction time.
+        """
+        return self._skip_rows
+
+    @property
     def collection(self) -> str:
         """Return ``segment_catalog``."""
         return str(COLLECTION_SEGMENT_CATALOG)
