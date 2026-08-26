@@ -1,12 +1,10 @@
 """Read-only repository over the offline BigQuery CSV dump.
 
-The dump (``csv_dump/segment_recommendation_features.csv``) is a snapshot of the
-segment recommendation features table. It is small enough (tens of thousands of
-rows) to parse once and keep in memory, so the first request pays the parse cost
-and every later request is a slice of a tuple.
+The dump (``csv_dump/best_sellers_output.csv``) is a snapshot of
+``best_sellers.sql``. It is parsed once and kept in memory, so the first
+request pays the parse cost and every later request is a slice of a tuple.
 
-Rows are returned in dump order, which BigQuery already sorted by popularity —
-this keeps pagination stable across requests.
+Rows are returned in dump order, which BigQuery already sorted.
 """
 
 from __future__ import annotations
@@ -20,6 +18,7 @@ from typing import Final
 import structlog
 from pydantic import ValidationError
 
+from lr_bestsellers.config import resolve_data_path
 from lr_bestsellers.exceptions import CatalogError
 from lr_bestsellers.models.catalog import (
     CatalogPage,
@@ -45,7 +44,7 @@ class CsvCatalogRepository:
         csv_path: Path to the CSV dump.
 
     Example:
-        >>> repo = CsvCatalogRepository(Path("csv_dump/segment_recommendation_features.csv"))
+        >>> repo = CsvCatalogRepository(Path("csv_dump/best_sellers_output.csv"))
         >>> page = repo.page(PageRequest(page=1, page_size=10))
         >>> len(page.items)
         10
@@ -57,7 +56,7 @@ class CsvCatalogRepository:
         Args:
             csv_path: Path to the CSV dump.
         """
-        self._csv_path = csv_path
+        self._csv_path = resolve_data_path(csv_path)
         self._lock = threading.Lock()
         self._rows: tuple[SegmentFeatureRow, ...] | None = None
 
@@ -144,14 +143,17 @@ class CsvCatalogRepository:
                 contains a row that fails validation.
         """
         try:
-            handle = self._csv_path.open(newline="", encoding="utf-8")
+            handle = self._csv_path.open(newline="", encoding="utf-8-sig")
         except OSError as exc:
             log.error("catalog.open_failed", path=str(self._csv_path), error=str(exc))
-            raise CatalogError(f"Cannot read CSV catalog at {self._csv_path}") from exc
+            raise CatalogError(f"Cannot read CSV catalog at {self._csv_path}: {exc}") from exc
 
         rows: list[SegmentFeatureRow] = []
         with handle:
-            reader = csv.DictReader(handle)
+            header_line = handle.readline()
+            handle.seek(0)
+            delimiter = "\t" if header_line.count("\t") > header_line.count(",") else ","
+            reader = csv.DictReader(handle, delimiter=delimiter)
             if reader.fieldnames is None:
                 log.error("catalog.empty_file", path=str(self._csv_path))
                 raise CatalogError(f"CSV catalog at {self._csv_path} has no header row")

@@ -6,7 +6,7 @@ Pydantic models — never bare dicts.
 
 ``CatalogRepositoryProtocol`` is the injection boundary for the offline segment
 catalog served by the API's browse branch. The production implementation wraps
-a static CSV dump of the BigQuery segment recommendation features table; unit
+``csv_dump/best_sellers_output.csv`` (the ``best_sellers.sql`` export); unit
 tests use small fixture files or in-memory fakes.
 """
 
@@ -159,9 +159,8 @@ class VectorStoreProtocol(Protocol):
 class CatalogRepositoryProtocol(Protocol):
     """Repository interface for reading pages of the offline segment catalog.
 
-    Implementations wrap a static dump of the BigQuery segment recommendation
-    features table. Unit tests use small fixture files or in-memory fakes that
-    satisfy this protocol.
+    Implementations wrap a static dump of ``best_sellers.sql``. Unit tests use
+    small fixture files or in-memory fakes that satisfy this protocol.
     """
 
     def page(self, request: PageRequest) -> CatalogPage:

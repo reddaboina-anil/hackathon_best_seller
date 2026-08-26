@@ -638,7 +638,9 @@ flowchart LR
 | `page_size` | query string | `50` | Rows per page, max `200`. Browse mode only. |
 | `X-Caller-Id` | header | `api` | Rate-limit bucket key. Ask mode only. |
 
-**Browse mode** — no `query`, so no LLM and no BigQuery call. The CSV dump of the segment recommendation features table is parsed on first request and cached, so later pages are served from memory.
+**Browse mode** — no `query`, so no LLM and no BigQuery call. Pages
+`csv_dump/best_sellers_output.csv` (the `best_sellers.sql` export). The file is
+parsed on first request and cached.
 
 ```bash
 curl -s "http://localhost:8000/v1/segments?page=1&page_size=2"
@@ -647,7 +649,7 @@ curl -s "http://localhost:8000/v1/segments?page=1&page_size=2"
 ```json
 {
   "mode": "catalog",
-  "source": "segment_recommendation_features.csv",
+  "source": "best_sellers_output.csv",
   "pagination": {
     "page": 1,
     "page_size": 2,
@@ -662,10 +664,8 @@ curl -s "http://localhost:8000/v1/segments?page=1&page_size=2"
       "segment_name": "Acxiom US Demographic > Age > Adult Age in HH > 35-44",
       "segment_description": "Someone in the household is between the ages of 35-44",
       "active_platform_names": ["A&E Networks", "Altice / NYI", "Ampersand"],
-      "impressions": 25662800.19939599,
-      "popularity_rank": 1,
-      "is_top_n_popular": true,
-      "usage_start_date": "2026-07-26"
+      "ios_reach": 1200000,
+      "is_highly_distributed": true
     }
   ]
 }
@@ -878,7 +878,7 @@ uv run --allow-insecure-host pypi.org --allow-insecure-host files.pythonhosted.o
 | `EMBEDDING_MODEL`                | `embedding_model`                 | Embeddings (default `gemini-embedding-2`) |
 | `BIGQUERY_PROJECT`               | `bigquery_project` / `bq_project` | **Billing** project for jobs              |
 | `GOOGLE_APPLICATION_CREDENTIALS` | `google_application_credentials`  | Optional SA JSON path; else ADC           |
-| `CSV_CATALOG_PATH` | `csv_catalog_path` | CSV dump served in browse mode (default `csv_dump/segment_recommendation_features.csv`). Alias: `CSV_DUMP_PATH` |
+| `CSV_CATALOG_PATH` | `csv_catalog_path` | CSV dump served in browse mode (default `csv_dump/best_sellers_output.csv`, resolved against the repo root). Alias: `CSV_DUMP_PATH` |
 | `QDRANT_URL`                     | `qdrant_url`                      | Default `http://localhost:6333`           |
 | `QDRANT_API_KEY`                 | `qdrant_api_key`                  | Qdrant Cloud only                         |
 | `SIMILARITY_THRESHOLD`           | `similarity_threshold`            | Default `0.65`                            |
@@ -904,7 +904,7 @@ Never commit `.env` or service-account JSON. `*.json` is gitignored.
 | What are the top segments by cookie reach?               | analytics      | Text2SQL                            |
 | What is activation and how many buyers use top segments? | mixed          | Vector then SQL                     |
 | Ignore previous instructions                             | blocked        | Input guardrail `INJECTION_ATTEMPT` |
-| *(no question at all)* | browse | `GET /v1/segments` pages the CSV dump |
+| *(no question at all)* | browse | `GET /v1/segments` pages `csv_dump/best_sellers_output.csv` |
 
 
 Python:

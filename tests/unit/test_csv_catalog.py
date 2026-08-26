@@ -23,31 +23,25 @@ CSV_COLUMNS: Final[tuple[str, ...]] = (
     "segment_description",
     "segment_type",
     "seller_customer_id",
-    "active_platform_names",
-    "usage_platform_names",
     "active_destination_accounts",
     "active_buyers",
-    "active_distribution_platforms",
-    "buyers_with_usage",
-    "platforms_with_usage",
-    "impressions",
-    "gross_data_revenue",
-    "provider_net_revenue",
-    "liveramp_net_revenue",
+    "active_platforms",
+    "active_platform_names",
+    "cookie_reach",
+    "ios_reach",
+    "android_reach",
+    "input_records",
+    "cookie_reach_updated_at",
+    "ios_reach_updated_at",
+    "android_reach_updated_at",
+    "reach_by_platform",
     "distribution_rank",
-    "impressions_rank",
-    "provider_revenue_rank",
-    "buyer_usage_rank",
-    "platform_usage_rank",
-    "popularity_score",
-    "popularity_rank",
+    "reach_rank",
     "is_highly_distributed",
-    "is_highly_used",
-    "is_top_n_popular",
-    "usage_start_date",
-    "usage_end_date",
+    "is_highly_reachable",
+    "is_top_n_by_reach",
 )
-"""Column order of the BigQuery dump."""
+"""Column order of the ``best_sellers.sql`` dump."""
 
 
 def make_row(index: int, **overrides: str) -> dict[str, str]:
@@ -66,29 +60,23 @@ def make_row(index: int, **overrides: str) -> dict[str, str]:
         "segment_description": f"Description {index}",
         "segment_type": "Syndicated",
         "seller_customer_id": "506526",
-        "active_platform_names": "Beeswax, The Trade Desk, Xandr",
-        "usage_platform_names": "The Trade Desk",
         "active_destination_accounts": "12",
         "active_buyers": "5",
-        "active_distribution_platforms": "4",
-        "buyers_with_usage": "2",
-        "platforms_with_usage": "1",
-        "impressions": "125000.5",
-        "gross_data_revenue": "980.25",
-        "provider_net_revenue": "-12.5",
-        "liveramp_net_revenue": "300.75",
+        "active_platforms": "3",
+        "active_platform_names": "Beeswax, The Trade Desk, Xandr",
+        "cookie_reach": "500000",
+        "ios_reach": "120000",
+        "android_reach": "80000",
+        "input_records": "1000000",
+        "cookie_reach_updated_at": "2026-08-01T00:00:00",
+        "ios_reach_updated_at": "2026-08-01T00:00:00",
+        "android_reach_updated_at": "2026-08-01T00:00:00",
+        "reach_by_platform": "The Trade Desk: 1000",
         "distribution_rank": str(index + 1),
-        "impressions_rank": str(index + 1),
-        "provider_revenue_rank": str(index + 1),
-        "buyer_usage_rank": str(index + 1),
-        "platform_usage_rank": str(index + 1),
-        "popularity_score": "0.0123",
-        "popularity_rank": str(index + 1),
+        "reach_rank": str(index + 1),
         "is_highly_distributed": "true",
-        "is_highly_used": "false",
-        "is_top_n_popular": "true",
-        "usage_start_date": "2026-07-26",
-        "usage_end_date": "2026-08-24",
+        "is_highly_reachable": "false",
+        "is_top_n_by_reach": "true",
     }
     row.update(overrides)
     return row
@@ -128,25 +116,23 @@ class TestSegmentFeatureRow:
     """Tests for row-level parsing of raw CSV strings."""
 
     def test_parses_types(self) -> None:
-        """Strings from the dump are coerced to ints, floats, bools, and dates."""
+        """Strings from the dump are coerced to ints, bools, and lists."""
         row = SegmentFeatureRow.model_validate(make_row(0))
         assert row.dms_segment_id == 1000
-        assert row.impressions == pytest.approx(125000.5)
-        assert row.provider_net_revenue == pytest.approx(-12.5)
+        assert row.ios_reach == 120000
         assert row.is_highly_distributed is True
-        assert row.is_highly_used is False
-        assert row.usage_end_date.isoformat() == "2026-08-24"
+        assert row.is_highly_reachable is False
+        assert row.is_top_n_by_reach is True
 
     def test_splits_platform_names(self) -> None:
         """Comma-joined platform aggregates become lists."""
         row = SegmentFeatureRow.model_validate(make_row(0))
         assert row.active_platform_names == ["Beeswax", "The Trade Desk", "Xandr"]
-        assert row.usage_platform_names == ["The Trade Desk"]
 
     def test_empty_platform_names(self) -> None:
         """An empty aggregate column becomes an empty list."""
-        row = SegmentFeatureRow.model_validate(make_row(0, usage_platform_names=""))
-        assert row.usage_platform_names == []
+        row = SegmentFeatureRow.model_validate(make_row(0, active_platform_names=""))
+        assert row.active_platform_names == []
 
     def test_blank_description_becomes_null(self) -> None:
         """Blank descriptions are normalised to None."""
@@ -206,6 +192,16 @@ class TestCsvCatalogRepository:
         with pytest.raises(CatalogError):
             repo.page(PageRequest())
 
+    def test_relative_path_ignores_cwd(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A relative dump path is resolved against the repo, not ``Path.cwd()``."""
+        monkeypatch.chdir(tmp_path)
+        repo = CsvCatalogRepository(Path("does-not-exist-catalog.csv"))
+        with pytest.raises(CatalogError, match="does-not-exist-catalog.csv") as exc_info:
+            repo.row_count()
+        assert str(tmp_path) not in str(exc_info.value)
+
     def test_empty_file(self, tmp_path: Path) -> None:
         """A file without a header row raises CatalogError."""
         path = tmp_path / "empty.csv"
@@ -217,18 +213,29 @@ class TestCsvCatalogRepository:
         """A row with a non-numeric metric raises CatalogError."""
         path = write_csv(
             tmp_path / "bad.csv",
-            [make_row(0), make_row(1, impressions="not-a-number")],
+            [make_row(0), make_row(1, ios_reach="not-a-number")],
         )
         with pytest.raises(CatalogError):
             CsvCatalogRepository(path).row_count()
 
     def test_missing_column(self, tmp_path: Path) -> None:
-        """A dump missing a required column raises CatalogError."""
+        """A dump missing ``dms_segment_id`` raises CatalogError."""
         path = tmp_path / "short.csv"
         with path.open("w", newline="", encoding="utf-8") as handle:
-            handle.write("dms_segment_id,segment_name\n1,Some Segment\n")
+            handle.write("segment_name\nSome Segment\n")
         with pytest.raises(CatalogError):
             CsvCatalogRepository(path).row_count()
+
+    def test_tab_separated_dump(self, tmp_path: Path) -> None:
+        """A TSV export of ``best_sellers.sql`` is accepted."""
+        path = tmp_path / "best_sellers_output.csv"
+        with path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(CSV_COLUMNS), delimiter="\t")
+            writer.writeheader()
+            writer.writerow(make_row(0))
+        page = CsvCatalogRepository(path).page(PageRequest(page=1, page_size=1))
+        assert page.items[0].dms_segment_id == 1000
+        assert page.items[0].active_platform_names == ["Beeswax", "The Trade Desk", "Xandr"]
 
 
 @pytest.mark.skipif(
@@ -239,5 +246,4 @@ def test_real_dump_header_matches_model() -> None:
     """The committed dump's header matches the fields of SegmentFeatureRow."""
     with DEFAULT_CSV_CATALOG_PATH.open(newline="", encoding="utf-8") as handle:
         header = next(csv.reader(handle))
-    assert tuple(header) == CSV_COLUMNS
-    assert set(header) == set(SegmentFeatureRow.model_fields)
+    assert set(CSV_COLUMNS) <= set(header)

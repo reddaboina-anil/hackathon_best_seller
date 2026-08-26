@@ -127,9 +127,9 @@ class TestBrowseBranch:
         """Catalog rows expose typed metrics and split platform lists."""
         item = client.get(ENDPOINT, params={"page_size": 1}).json()["items"][0]
         assert item["active_platform_names"] == ["Beeswax", "The Trade Desk", "Xandr"]
-        assert item["impressions"] == 125000.5
-        assert item["is_highly_used"] is False
-        assert item["usage_start_date"] == "2026-07-26"
+        assert item["ios_reach"] == 120000
+        assert item["is_highly_reachable"] is False
+        assert item["is_top_n_by_reach"] is True
 
     def test_page_size_over_limit(self, client: TestClient) -> None:
         """page_size above the maximum is rejected by validation."""

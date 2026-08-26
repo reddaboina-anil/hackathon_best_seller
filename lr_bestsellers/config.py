@@ -12,7 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Final, Literal
 
-from pydantic import AliasChoices, Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_LLM_MODEL: Final[str] = "gemini-3.6-flash"
@@ -21,8 +21,30 @@ DEFAULT_LLM_MODEL: Final[str] = "gemini-3.6-flash"
 DEFAULT_EMBEDDING_MODEL: Final[str] = "gemini-embedding-2"
 """Default Gemini embedding model used when ``EMBEDDING_MODEL`` is unset."""
 
-DEFAULT_CSV_CATALOG_PATH: Final[Path] = Path("csv_dump/segment_recommendation_features.csv")
+DEFAULT_CSV_CATALOG_PATH: Final[Path] = Path("csv_dump/best_sellers_output.csv")
 """Default location of the BigQuery CSV dump used when ``CSV_CATALOG_PATH`` is unset."""
+
+_REPO_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
+"""Repository root; relative data paths are resolved against this directory."""
+
+
+def resolve_data_path(value: Path) -> Path:
+    """Resolve a relative data path against the repository root.
+
+    Uvicorn's working directory is not always the repo root (IDE run configs,
+    ``--reload`` children). Relative paths like ``csv_dump/best_sellers_output.csv``
+    must not depend on ``Path.cwd()``.
+
+    Args:
+        value: Configured filesystem path.
+
+    Returns:
+        An absolute path. Absolute inputs are returned unchanged.
+    """
+    expanded = value.expanduser()
+    if expanded.is_absolute():
+        return expanded
+    return (_REPO_ROOT / expanded).resolve()
 
 
 class Settings(BaseSettings):
@@ -113,10 +135,24 @@ class Settings(BaseSettings):
             "CSV_DUMP_PATH",
         ),
         description=(
-            "Path to the segment recommendation features CSV dump served by the "
-            "browse branch of the segments API."
+            "Path to the ``best_sellers.sql`` CSV dump served by the browse "
+            "branch of GET /v1/segments (default ``csv_dump/best_sellers_output.csv``). "
+            "Relative paths are resolved against the repository root."
         ),
     )
+
+    @field_validator("csv_catalog_path", mode="after")
+    @classmethod
+    def _resolve_csv_catalog_path(cls, value: Path) -> Path:
+        """Make ``csv_catalog_path`` absolute against the repository root.
+
+        Args:
+            value: Raw path from the environment or the field default.
+
+        Returns:
+            An absolute path.
+        """
+        return resolve_data_path(value)
 
     # ── Qdrant ───────────────────────────────────────────────────────────────
     qdrant_url: str = Field(

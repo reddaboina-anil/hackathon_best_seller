@@ -23,7 +23,7 @@ flowchart LR
     end
 
     subgraph api [Always live]
-        E["tag-api :8001\nFastAPI + DuckDB read-only"]
+        E["tag-api :8001\nGET /v1/tags, /segments"]
     end
 
     A --> B --> C --> D --> E
@@ -31,7 +31,7 @@ flowchart LR
 
 - **Manual (once)**: Someone with BigQuery access runs `best_sellers.sql`, downloads the TSV, drops it in `csv_dump/`. Share the file with the team — nobody else needs BigQuery access.
 - **On-demand**: `docker compose --profile compute run --rm tag-compute` reads the CSV and rebuilds `tags.duckdb`. Re-run whenever the CSV is refreshed.
-- **Always live**: `tag-api` reads `tags.duckdb` and responds in milliseconds. No BigQuery, no secrets, no AI.
+- **Always live**: `tag-api` reads `tags.duckdb` and serves `GET /v1/tags`, `GET /v1/segments` (paginated dump rows + tags), plus per-segment and per-tag lookups. No BigQuery, no secrets, no AI.
 
 ---
 
@@ -108,7 +108,7 @@ flowchart TD
 
         subgraph tagsystem [Tag System — new, standalone]
             DuckCLI["tag-compute\nduckdb/duckdb image\nprofile=compute"]
-            TagAPI["tag-api :8001\ntag_api/\npython:3.13-slim ~150MB"]
+            TagAPI["tag-api :8001\nGET /v1/tags, /segments\npython:3.13-slim"]
             DuckVol[("duckdb_data volume\ntags.duckdb")]
         end
     end
@@ -272,9 +272,9 @@ tag_api/
 ├── uv.lock
 ├── main.py             # create_app() + lifespan (open DuckDB once, close on shutdown)
 ├── config.py           # Settings(BaseSettings): TAGS_DUCKDB_PATH
-├── models.py           # TagDefinition, SegmentTag, TagsPage (Pydantic v2)
+├── models.py           # TagDefinition, SegmentRow, SegmentsPage, TagsPage
 ├── store.py            # TagStoreProtocol + DuckDbTagStore + EmptyTagStore (Null Object)
-├── routes.py           # GET /v1/tags, GET /v1/segments/{id}/tags, GET /v1/tags/{key}/segments
+├── routes.py           # GET /v1/tags, /segments, /segments/{id}/tags, /tags/{slug}/segments
 ├── dependencies.py     # get_tag_store() — @lru_cache(maxsize=1) singleton
 ├── exceptions.py       # TagStoreError, TagNotFoundError
 └── tests/
@@ -311,11 +311,12 @@ dependencies = [
 ]
 ```
 
-**`TagStoreProtocol`** (exactly 3 methods — Interface Segregation):
+**`TagStoreProtocol`** (4 methods — Interface Segregation):
 ```python
 class TagStoreProtocol(Protocol):
     def get_tags_for_segment(self, segment_id: int) -> list[TagDefinition]: ...
     def get_segments_for_tag(self, slug: str, page: int, size: int) -> TagsPage: ...
+    def list_segments(self, page: int, size: int) -> SegmentsPage: ...
     def list_tags(self) -> list[TagDefinition]: ...
 ```
 
@@ -323,6 +324,7 @@ class TagStoreProtocol(Protocol):
 
 **API endpoints**:
 - `GET /v1/tags` → list all 11 tag definitions
+- `GET /v1/segments?page=1&size=50` → paginated `segment_dump` rows, each with assigned tags
 - `GET /v1/segments/{segment_id}/tags` → all tags for a given segment
 - `GET /v1/tags/{slug}/segments?page=1&size=50` → paginated segment IDs for a tag
 
@@ -379,6 +381,7 @@ docker compose up -d tag-api
 
 # 5. Verify
 curl http://localhost:8001/v1/tags
+curl "http://localhost:8001/v1/segments?page=1&size=10"
 curl http://localhost:8001/v1/segments/1015151361/tags
 curl "http://localhost:8001/v1/tags/high_ios_reach/segments?page=1&size=10"
 ```
@@ -394,7 +397,7 @@ Zero local Python installs. Zero secrets.
 - **Single Responsibility**: `compute_tags.sql` computes tags. `DuckDbTagStore` reads tags. `routes.py` handles HTTP. `models.py` defines shapes.
 - **Open/Closed**: Add a tag by editing `compute_tags.sql` only — zero Python changes, zero Docker rebuild.
 - **Liskov Substitution**: `EmptyTagStore` and `DuckDbTagStore` are fully interchangeable via `TagStoreProtocol`.
-- **Interface Segregation**: `TagStoreProtocol` has exactly 3 methods.
+- **Interface Segregation**: `TagStoreProtocol` has four methods.
 - **Dependency Inversion**: Routes depend on `TagStoreProtocol`, injected via `Depends(get_tag_store)`.
 
 ### Design Patterns
@@ -413,8 +416,8 @@ Zero local Python installs. Zero secrets.
 ### Unit Tests (≥ 90% coverage on all new files)
 
 - **`conftest.py`**: in-memory DuckDB seeded with 3 tag_definitions + 5 segment_tag_assignments + 5 tag_segment_index rows
-- **`test_store.py`**: `get_tags_for_segment` hit/miss, `get_segments_for_tag` pagination, `list_tags` ordering, missing-file graceful degradation
-- **`test_routes.py`**: all 3 endpoints happy path + 404 + 503, `dependency_overrides` with Mock — no real DuckDB in route tests
+- **`test_store.py`**: `get_tags_for_segment` hit/miss, `get_segments_for_tag` pagination, `list_segments` pagination, `list_tags` ordering, missing-file graceful degradation
+- **`test_routes.py`**: all 4 endpoints happy path + 404 + 503, `dependency_overrides` with Mock — no real DuckDB in route tests
 - **`test_models.py`**: Pydantic validation edge cases
 - **`test_compute_sql.py`** (in existing `tests/unit/`): load `compute_tags.sql` into `:memory:` DuckDB with 5-row fixture CSV, assert `tag_definitions` has exactly **11 rows**, assert `top_facebook_activated` fires only when Facebook is present AND `is_highly_distributed`, assert `cross_device_champion` requires all three reach columns above p80
 

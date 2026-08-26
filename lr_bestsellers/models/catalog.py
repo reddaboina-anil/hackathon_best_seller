@@ -1,18 +1,17 @@
 """Pydantic models for the offline segment catalog served over HTTP.
 
 One :class:`SegmentFeatureRow` corresponds to a single row of
-``csv_dump/segment_recommendation_features.csv`` — a dump of the BigQuery
-segment recommendation features table.  The API returns either a
-:class:`CatalogPage` (no ``query`` supplied) or an :class:`AgentAnswer`
-(``query`` supplied), discriminated by the ``mode`` field.
+``csv_dump/best_sellers_output.csv`` — a dump of ``best_sellers.sql``.
+The API returns either a :class:`CatalogPage` (no ``query`` supplied) or an
+:class:`AgentAnswer` (``query`` supplied), discriminated by the ``mode`` field.
 """
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Annotated, Final, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from lr_bestsellers.models.query import QueryResponse
 
@@ -33,94 +32,75 @@ def _split_platform_names(value: object) -> object:
         value: Raw CSV cell value, or an already-parsed list.
 
     Returns:
-        A list of platform names, or ``value`` unchanged when it is not a string.
+        A list of platform names, or ``value`` unchanged when it is not a
+        string. ``None`` becomes an empty list.
     """
+    if value is None:
+        return []
     if not isinstance(value, str):
         return value
     return [name.strip() for name in value.split(PLATFORM_NAME_SEPARATOR) if name.strip()]
 
 
+def _blank_to_none(value: object) -> object:
+    """Turn empty CSV cells into ``None``.
+
+    Args:
+        value: Raw CSV cell value.
+
+    Returns:
+        ``None`` for empty or whitespace-only strings, else ``value``.
+    """
+    if isinstance(value, str) and not value.strip():
+        return None
+    return value
+
+
 class SegmentFeatureRow(BaseModel):
-    """Distribution, usage, and revenue features for one syndicated segment.
+    """One ``best_sellers.sql`` dump row.
+
+    Known columns are modelled explicitly. Extra columns from a wider export
+    are ignored so the contract stays stable.
 
     Attributes:
         dms_segment_id: Unique LiveRamp segment identifier.
         segment_name: Human-readable taxonomy path of the segment.
         segment_description: Free-text description; ``None`` when the dump is blank.
-        segment_type: Marketplace segment type (always ``Syndicated`` in this dump).
-        seller_customer_id: LiveRamp customer ID of the selling data provider.
-        active_platform_names: Platforms the segment is currently distributed to.
-        usage_platform_names: Platforms that actually delivered impressions.
-        active_destination_accounts: Count of enabled destination accounts.
-        active_buyers: Count of distinct buyers with the segment enabled.
-        active_distribution_platforms: Count of distinct platforms distributing it.
-        buyers_with_usage: Count of buyers that delivered impressions.
-        platforms_with_usage: Count of platforms that delivered impressions.
-        impressions: Impressions delivered in the usage window.
-        gross_data_revenue: Gross data revenue in the usage window.
-        provider_net_revenue: Net revenue attributed to the data provider.
-        liveramp_net_revenue: Net revenue attributed to LiveRamp.
-        distribution_rank: Dense rank by distribution footprint (1 is widest).
-        impressions_rank: Dense rank by impressions (1 is highest).
-        provider_revenue_rank: Dense rank by provider net revenue (1 is highest).
-        buyer_usage_rank: Dense rank by buyers with usage (1 is highest).
-        platform_usage_rank: Dense rank by platforms with usage (1 is highest).
-        popularity_score: Blended popularity score in [0, 1].
-        popularity_rank: Dense rank by ``popularity_score`` (1 is most popular).
-        is_highly_distributed: Segment is in the top decile by distribution.
-        is_highly_used: Segment is in the top decile by usage.
-        is_top_n_popular: Segment is in the top-N popularity cut.
-        usage_start_date: First day of the usage measurement window.
-        usage_end_date: Last day of the usage measurement window.
     """
 
-    dms_segment_id: int = Field(..., description="Unique LiveRamp segment identifier.")
-    segment_name: str = Field(..., description="Segment taxonomy path.")
-    segment_description: str | None = Field(None, description="Segment description text.")
-    segment_type: str = Field(..., description="Marketplace segment type.")
-    seller_customer_id: int = Field(..., description="Selling data provider customer ID.")
+    model_config = ConfigDict(extra="ignore")
 
+    dms_segment_id: int = Field(..., description="Unique LiveRamp segment identifier.")
+    segment_name: str | None = Field(None, description="Segment taxonomy path.")
+    segment_description: str | None = Field(None, description="Segment description text.")
+    segment_type: str | None = Field(None, description="Marketplace segment type.")
+    seller_customer_id: int | None = Field(None, description="Selling data provider customer ID.")
+    active_destination_accounts: int | None = Field(
+        None, description="Enabled destination accounts."
+    )
+    active_buyers: int | None = Field(None, description="Distinct buyers with the segment enabled.")
+    active_platforms: int | None = Field(
+        None, description="Distinct platforms distributing the segment."
+    )
     active_platform_names: list[str] = Field(
         default_factory=list,
         description="Platforms the segment is currently distributed to.",
     )
-    usage_platform_names: list[str] = Field(
-        default_factory=list,
-        description="Platforms that delivered impressions for the segment.",
+    cookie_reach: int | float | None = Field(None, description="Estimated cookie reach.")
+    ios_reach: int | float | None = Field(None, description="Estimated iOS device reach.")
+    android_reach: int | float | None = Field(None, description="Estimated Android device reach.")
+    input_records: int | float | None = Field(None, description="Input record count.")
+    cookie_reach_updated_at: str | None = Field(None, description="Cookie reach as-of timestamp.")
+    ios_reach_updated_at: str | None = Field(None, description="iOS reach as-of timestamp.")
+    android_reach_updated_at: str | None = Field(None, description="Android reach as-of timestamp.")
+    reach_by_platform: str | None = Field(None, description="Per-platform reach labels.")
+    distribution_rank: int | None = Field(None, description="Rank by distribution footprint.")
+    reach_rank: int | None = Field(None, description="Rank by reach.")
+    is_highly_distributed: bool | None = Field(
+        None, description="Top decile by destination accounts."
     )
-
-    active_destination_accounts: int = Field(..., ge=0, description="Enabled destination accounts.")
-    active_buyers: int = Field(..., ge=0, description="Distinct buyers with the segment enabled.")
-    active_distribution_platforms: int = Field(
-        ...,
-        ge=0,
-        description="Distinct platforms distributing the segment.",
-    )
-    buyers_with_usage: int = Field(..., ge=0, description="Buyers that delivered impressions.")
-    platforms_with_usage: int = Field(
-        ..., ge=0, description="Platforms that delivered impressions."
-    )
-
-    impressions: float = Field(..., description="Impressions delivered in the usage window.")
-    gross_data_revenue: float = Field(..., description="Gross data revenue in the usage window.")
-    provider_net_revenue: float = Field(..., description="Net revenue for the data provider.")
-    liveramp_net_revenue: float = Field(..., description="Net revenue for LiveRamp.")
-
-    distribution_rank: int = Field(..., ge=1, description="Rank by distribution footprint.")
-    impressions_rank: int = Field(..., ge=1, description="Rank by impressions.")
-    provider_revenue_rank: int = Field(..., ge=1, description="Rank by provider net revenue.")
-    buyer_usage_rank: int = Field(..., ge=1, description="Rank by buyers with usage.")
-    platform_usage_rank: int = Field(..., ge=1, description="Rank by platforms with usage.")
-
-    popularity_score: float = Field(..., description="Blended popularity score.")
-    popularity_rank: int = Field(..., ge=1, description="Rank by popularity score.")
-
-    is_highly_distributed: bool = Field(..., description="In the top decile by distribution.")
-    is_highly_used: bool = Field(..., description="In the top decile by usage.")
-    is_top_n_popular: bool = Field(..., description="In the top-N popularity cut.")
-
-    usage_start_date: date = Field(..., description="First day of the usage window.")
-    usage_end_date: date = Field(..., description="Last day of the usage window.")
+    is_highly_reachable: bool | None = Field(None, description="Top decile by reach.")
+    is_top_n_by_reach: bool | None = Field(None, description="Top-N by reach.")
 
     @field_validator("segment_description", mode="before")
     @classmethod
@@ -133,14 +113,12 @@ class SegmentFeatureRow(BaseModel):
         Returns:
             ``None`` for empty or whitespace-only strings, else ``value``.
         """
-        if isinstance(value, str) and not value.strip():
-            return None
-        return value
+        return _blank_to_none(value)
 
-    @field_validator("active_platform_names", "usage_platform_names", mode="before")
+    @field_validator("active_platform_names", mode="before")
     @classmethod
     def _parse_platform_names(cls, value: object) -> object:
-        """Split the aggregated platform-name columns into lists.
+        """Split the aggregated platform-name column into a list.
 
         Args:
             value: Raw CSV cell value, or an already-parsed list.
@@ -149,6 +127,60 @@ class SegmentFeatureRow(BaseModel):
             A list of platform names.
         """
         return _split_platform_names(value)
+
+    @field_validator(
+        "seller_customer_id",
+        "active_destination_accounts",
+        "active_buyers",
+        "active_platforms",
+        "cookie_reach",
+        "ios_reach",
+        "android_reach",
+        "input_records",
+        "distribution_rank",
+        "reach_rank",
+        "is_highly_distributed",
+        "is_highly_reachable",
+        "is_top_n_by_reach",
+        "cookie_reach_updated_at",
+        "ios_reach_updated_at",
+        "android_reach_updated_at",
+        "reach_by_platform",
+        mode="before",
+    )
+    @classmethod
+    def _blank_optional_is_null(cls, value: object) -> object:
+        """Normalise empty optional cells to ``None``.
+
+        Args:
+            value: Raw CSV cell value.
+
+        Returns:
+            ``None`` for empty or whitespace-only strings, else ``value``.
+        """
+        return _blank_to_none(value)
+
+    @field_validator(
+        "cookie_reach_updated_at",
+        "ios_reach_updated_at",
+        "android_reach_updated_at",
+        mode="before",
+    )
+    @classmethod
+    def _stringify_timestamp(cls, value: object) -> object:
+        """Normalise dump timestamps to ISO-8601 strings.
+
+        Args:
+            value: Raw cell value.
+
+        Returns:
+            An ISO-8601 string for date/datetime values, else ``value``.
+        """
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, date):
+            return value.isoformat()
+        return value
 
 
 class PageRequest(BaseModel):

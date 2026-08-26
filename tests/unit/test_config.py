@@ -7,10 +7,17 @@ the Settings constructor, which overrides env-file loading.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
-from lr_bestsellers.config import DEFAULT_EMBEDDING_MODEL, DEFAULT_LLM_MODEL, Settings
+from lr_bestsellers.config import (
+    DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_LLM_MODEL,
+    Settings,
+    resolve_data_path,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -94,6 +101,30 @@ class TestDefaults:
     def test_qdrant_url_default(self) -> None:
         """qdrant_url defaults to local Docker address."""
         assert make_settings().qdrant_url == "http://localhost:6333"
+
+    def test_csv_catalog_path_default_is_absolute(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Relative default is resolved against the repository root."""
+        monkeypatch.delenv("CSV_CATALOG_PATH", raising=False)
+        monkeypatch.delenv("CSV_DUMP_PATH", raising=False)
+        settings = Settings(
+            google_api_key="fake-api-key",
+            bigquery_project="my-gcp-project",
+            _env_file=None,  # type: ignore[call-arg]
+        )
+        path = settings.csv_catalog_path
+        assert path.is_absolute()
+        assert path.name == "best_sellers_output.csv"
+        assert path.parent.name == "csv_dump"
+
+    def test_relative_csv_catalog_path_ignores_cwd(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A relative CSV_CATALOG_PATH does not follow ``Path.cwd()``."""
+        monkeypatch.chdir(tmp_path)
+        path = resolve_data_path(Path("csv_dump/best_sellers_output.csv"))
+        assert path.is_absolute()
+        assert path.parent.name == "csv_dump"
+        assert tmp_path not in path.parents
 
     def test_qdrant_api_key_default_none(self) -> None:
         """qdrant_api_key defaults to None for local instances."""
