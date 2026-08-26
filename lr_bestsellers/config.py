@@ -21,8 +21,11 @@ DEFAULT_LLM_MODEL: Final[str] = "gemini-3.6-flash"
 DEFAULT_EMBEDDING_MODEL: Final[str] = "gemini-embedding-2"
 """Default Gemini embedding model used when ``EMBEDDING_MODEL`` is unset."""
 
-DEFAULT_CSV_CATALOG_PATH: Final[Path] = Path("csv_dump/best_sellers_output.csv")
-"""Default location of the BigQuery CSV dump used when ``CSV_CATALOG_PATH`` is unset."""
+DEFAULT_CSV_FILENAME: Final[str] = "syndicated_segments_raw_enriched_data.csv"
+"""Default enriched CSV filename used when ``CSV_FILENAME`` is unset."""
+
+DEFAULT_CSV_CATALOG_PATH: Final[Path] = Path("csv_dump") / DEFAULT_CSV_FILENAME
+"""Default location of the enriched CSV dump used when ``CSV_CATALOG_PATH`` is unset."""
 
 _REPO_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
 """Repository root; relative data paths are resolved against this directory."""
@@ -32,7 +35,7 @@ def resolve_data_path(value: Path) -> Path:
     """Resolve a relative data path against the repository root.
 
     Uvicorn's working directory is not always the repo root (IDE run configs,
-    ``--reload`` children). Relative paths like ``csv_dump/best_sellers_output.csv``
+    ``--reload`` children). Relative paths like ``csv_dump/<filename>``
     must not depend on ``Path.cwd()``.
 
     Args:
@@ -58,7 +61,9 @@ class Settings(BaseSettings):
         llm_model: Gemini chat model id (default ``gemini-3.6-flash``).
         embedding_model: Gemini embedding model id (default ``gemini-embedding-2``).
         bigquery_project: GCP project ID that owns the BigQuery dataset.
-        csv_catalog_path: Path to the offline BigQuery CSV dump.
+        csv_filename: Filename of the enriched CSV export (single source of truth).
+        csv_catalog_path: Path to the enriched CSV served by the browse API.
+        catalog_ingest_csv: Path to the enriched CSV used by Qdrant ingest.
         qdrant_url: Qdrant server URL (default ``http://localhost:6333``).
         qdrant_api_key: Qdrant Cloud API key; ``None`` for local instances.
         langsmith_api_key: LangSmith tracing API key (optional).
@@ -126,7 +131,18 @@ class Settings(BaseSettings):
         ),
     )
 
-    # ── CSV catalog (offline BigQuery dump) ──────────────────────────────────
+    # ── Enriched CSV (single source for all consumers) ───────────────────────
+    csv_filename: str = Field(
+        DEFAULT_CSV_FILENAME,
+        min_length=1,
+        validation_alias=AliasChoices("csv_filename", "CSV_FILENAME"),
+        description=(
+            "Filename of the enriched BigQuery CSV export placed under "
+            "``csv_dump/``. Change this one value to switch every consumer "
+            "(browse API, Qdrant ingest, DuckDB tag-compute) to a new export. "
+            f"Default: ``{DEFAULT_CSV_FILENAME}``."
+        ),
+    )
     csv_catalog_path: Path = Field(
         DEFAULT_CSV_CATALOG_PATH,
         validation_alias=AliasChoices(
@@ -135,16 +151,28 @@ class Settings(BaseSettings):
             "CSV_DUMP_PATH",
         ),
         description=(
-            "Path to the ``best_sellers.sql`` CSV dump served by the browse "
-            "branch of GET /v1/segments (default ``csv_dump/best_sellers_output.csv``). "
+            "Full path to the enriched CSV dump served by the browse branch of "
+            "GET /v1/segments. Defaults to ``csv_dump/{csv_filename}``. "
+            "Set this to override the path entirely; otherwise leave unset and "
+            "control the filename via ``CSV_FILENAME``. "
+            "Relative paths are resolved against the repository root."
+        ),
+    )
+    catalog_ingest_csv: Path = Field(
+        DEFAULT_CSV_CATALOG_PATH,
+        validation_alias=AliasChoices("catalog_ingest_csv", "CATALOG_INGEST_CSV"),
+        description=(
+            "Path to the enriched CSV used by ``--source csv`` Qdrant ingest. "
+            "Defaults to the same file as ``csv_catalog_path``. "
+            "Override only when the ingest source differs from the browse catalog. "
             "Relative paths are resolved against the repository root."
         ),
     )
 
-    @field_validator("csv_catalog_path", mode="after")
+    @field_validator("csv_catalog_path", "catalog_ingest_csv", mode="after")
     @classmethod
-    def _resolve_csv_catalog_path(cls, value: Path) -> Path:
-        """Make ``csv_catalog_path`` absolute against the repository root.
+    def _resolve_csv_paths(cls, value: Path) -> Path:
+        """Make CSV paths absolute against the repository root.
 
         Args:
             value: Raw path from the environment or the field default.

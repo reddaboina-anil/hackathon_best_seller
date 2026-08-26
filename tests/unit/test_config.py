@@ -13,6 +13,7 @@ import pytest
 from pydantic import ValidationError
 
 from lr_bestsellers.config import (
+    DEFAULT_CSV_FILENAME,
     DEFAULT_EMBEDDING_MODEL,
     DEFAULT_LLM_MODEL,
     Settings,
@@ -102,10 +103,21 @@ class TestDefaults:
         """qdrant_url defaults to local Docker address."""
         assert make_settings().qdrant_url == "http://localhost:6333"
 
+    def test_csv_filename_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """csv_filename defaults to the enriched export filename."""
+        monkeypatch.delenv("CSV_FILENAME", raising=False)
+        settings = Settings(
+            google_api_key="fake-api-key",
+            bigquery_project="my-gcp-project",
+            _env_file=None,  # type: ignore[call-arg]
+        )
+        assert settings.csv_filename == DEFAULT_CSV_FILENAME
+
     def test_csv_catalog_path_default_is_absolute(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Relative default is resolved against the repository root."""
         monkeypatch.delenv("CSV_CATALOG_PATH", raising=False)
         monkeypatch.delenv("CSV_DUMP_PATH", raising=False)
+        monkeypatch.delenv("CSV_FILENAME", raising=False)
         settings = Settings(
             google_api_key="fake-api-key",
             bigquery_project="my-gcp-project",
@@ -113,7 +125,23 @@ class TestDefaults:
         )
         path = settings.csv_catalog_path
         assert path.is_absolute()
-        assert path.name == "best_sellers_output.csv"
+        assert path.name == DEFAULT_CSV_FILENAME
+        assert path.parent.name == "csv_dump"
+
+    def test_catalog_ingest_csv_default_is_absolute(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """catalog_ingest_csv defaults to the same enriched file as csv_catalog_path."""
+        monkeypatch.delenv("CATALOG_INGEST_CSV", raising=False)
+        monkeypatch.delenv("CSV_FILENAME", raising=False)
+        settings = Settings(
+            google_api_key="fake-api-key",
+            bigquery_project="my-gcp-project",
+            _env_file=None,  # type: ignore[call-arg]
+        )
+        path = settings.catalog_ingest_csv
+        assert path.is_absolute()
+        assert path.name == DEFAULT_CSV_FILENAME
         assert path.parent.name == "csv_dump"
 
     def test_relative_csv_catalog_path_ignores_cwd(
@@ -121,7 +149,7 @@ class TestDefaults:
     ) -> None:
         """A relative CSV_CATALOG_PATH does not follow ``Path.cwd()``."""
         monkeypatch.chdir(tmp_path)
-        path = resolve_data_path(Path("csv_dump/best_sellers_output.csv"))
+        path = resolve_data_path(Path(f"csv_dump/{DEFAULT_CSV_FILENAME}"))
         assert path.is_absolute()
         assert path.parent.name == "csv_dump"
         assert tmp_path not in path.parents

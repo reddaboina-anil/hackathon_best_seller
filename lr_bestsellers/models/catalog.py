@@ -1,7 +1,8 @@
 """Pydantic models for the offline segment catalog served over HTTP.
 
-One :class:`SegmentFeatureRow` corresponds to a single row of
-``csv_dump/best_sellers_output.csv`` — a dump of ``best_sellers.sql``.
+One :class:`SegmentFeatureRow` corresponds to a single row of the enriched
+BigQuery CSV export (``csv_dump/syndicated_segments_raw_enriched_data.csv`` by
+default, configured via ``CSV_FILENAME`` in ``.env``).
 The API returns either a :class:`CatalogPage` (no ``query`` supplied) or an
 :class:`AgentAnswer` (``query`` supplied), discriminated by the ``mode`` field.
 """
@@ -57,10 +58,10 @@ def _blank_to_none(value: object) -> object:
 
 
 class SegmentFeatureRow(BaseModel):
-    """One ``best_sellers.sql`` dump row.
+    """One enriched CSV dump row.
 
-    Known columns are modelled explicitly. Extra columns from a wider export
-    are ignored so the contract stays stable.
+    Known enriched-export columns are modelled explicitly. Extra columns from a
+    wider export are ignored so the contract stays stable.
 
     Attributes:
         dms_segment_id: Unique LiveRamp segment identifier.
@@ -86,21 +87,37 @@ class SegmentFeatureRow(BaseModel):
         default_factory=list,
         description="Platforms the segment is currently distributed to.",
     )
+    buyers_with_usage: int | None = Field(None, description="Buyers with actual segment usage.")
+    platforms_with_usage: int | None = Field(
+        None, description="Platforms with actual segment usage."
+    )
+    impressions: float | None = Field(None, description="Total impression count.")
+    gross_data_revenue: float | None = Field(None, description="Gross data revenue.")
+    provider_net_revenue: float | None = Field(None, description="Provider net revenue.")
+    liveramp_net_revenue: float | None = Field(None, description="LiveRamp net revenue.")
     cookie_reach: int | float | None = Field(None, description="Estimated cookie reach.")
     ios_reach: int | float | None = Field(None, description="Estimated iOS device reach.")
     android_reach: int | float | None = Field(None, description="Estimated Android device reach.")
+    max_connect_reach: float | None = Field(None, description="Max Connect reach.")
     input_records: int | float | None = Field(None, description="Input record count.")
+    reach_by_platform: str | None = Field(None, description="Per-platform reach labels.")
     cookie_reach_updated_at: str | None = Field(None, description="Cookie reach as-of timestamp.")
     ios_reach_updated_at: str | None = Field(None, description="iOS reach as-of timestamp.")
     android_reach_updated_at: str | None = Field(None, description="Android reach as-of timestamp.")
-    reach_by_platform: str | None = Field(None, description="Per-platform reach labels.")
     distribution_rank: int | None = Field(None, description="Rank by distribution footprint.")
+    impressions_rank: int | None = Field(None, description="Rank by impressions.")
+    provider_revenue_rank: int | None = Field(None, description="Rank by provider revenue.")
+    buyer_usage_rank: int | None = Field(None, description="Rank by buyer usage.")
+    platform_usage_rank: int | None = Field(None, description="Rank by platform usage.")
     reach_rank: int | None = Field(None, description="Rank by reach.")
+    popularity_score: float | None = Field(None, description="Computed popularity score.")
+    popularity_rank: int | None = Field(None, description="Rank by popularity score.")
     is_highly_distributed: bool | None = Field(
         None, description="Top decile by destination accounts."
     )
+    is_highly_used: bool | None = Field(None, description="Top decile by usage.")
     is_highly_reachable: bool | None = Field(None, description="Top decile by reach.")
-    is_top_n_by_reach: bool | None = Field(None, description="Top-N by reach.")
+    is_top_n_popular: bool | None = Field(None, description="Top-N by popularity score.")
 
     @field_validator("segment_description", mode="before")
     @classmethod
@@ -133,19 +150,33 @@ class SegmentFeatureRow(BaseModel):
         "active_destination_accounts",
         "active_buyers",
         "active_platforms",
+        "buyers_with_usage",
+        "platforms_with_usage",
+        "impressions",
+        "gross_data_revenue",
+        "provider_net_revenue",
+        "liveramp_net_revenue",
         "cookie_reach",
         "ios_reach",
         "android_reach",
+        "max_connect_reach",
         "input_records",
+        "reach_by_platform",
         "distribution_rank",
+        "impressions_rank",
+        "provider_revenue_rank",
+        "buyer_usage_rank",
+        "platform_usage_rank",
         "reach_rank",
+        "popularity_score",
+        "popularity_rank",
         "is_highly_distributed",
+        "is_highly_used",
         "is_highly_reachable",
-        "is_top_n_by_reach",
+        "is_top_n_popular",
         "cookie_reach_updated_at",
         "ios_reach_updated_at",
         "android_reach_updated_at",
-        "reach_by_platform",
         mode="before",
     )
     @classmethod

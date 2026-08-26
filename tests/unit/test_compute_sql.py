@@ -16,7 +16,11 @@ import pytest
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 COMPUTE_SQL_PATH: Final[Path] = REPO_ROOT / "compute_tags.sql"
-CSV_PLACEHOLDER: Final[str] = "/workspace/csv_dump/best_sellers_output.csv"
+_DEFAULT_CSV_FILENAME: Final[str] = "syndicated_segments_raw_enriched_data.csv"
+CSV_PLACEHOLDER: Final[str] = (
+    "'/workspace/csv_dump/' || COALESCE(getenv('CSV_FILENAME'), "
+    f"'{_DEFAULT_CSV_FILENAME}')"
+)
 
 # Columns consumed by compute_tags.sql (a subset of the 22-column export).
 _COLUMNS: Final[tuple[str, ...]] = (
@@ -55,7 +59,11 @@ def _write_fixture_csv(path: Path) -> None:
 
 
 def _load_compute_sql(csv_path: Path) -> str:
-    """Return ``compute_tags.sql`` with the CSV path rewritten to ``csv_path``.
+    """Return ``compute_tags.sql`` with the CSV path expression rewritten to ``csv_path``.
+
+    The SQL uses a ``getenv('CSV_FILENAME')`` expression to locate the file.
+    For tests we replace the entire expression with a quoted literal path so
+    DuckDB reads the local fixture without needing an environment variable.
 
     Args:
         csv_path: Absolute path to the fixture TSV.
@@ -64,7 +72,7 @@ def _load_compute_sql(csv_path: Path) -> str:
         SQL ready to execute against an in-memory DuckDB.
     """
     sql = COMPUTE_SQL_PATH.read_text(encoding="utf-8")
-    return sql.replace(CSV_PLACEHOLDER, str(csv_path))
+    return sql.replace(CSV_PLACEHOLDER, f"'{csv_path}'")
 
 
 @pytest.fixture
@@ -77,7 +85,7 @@ def tagged_conn(tmp_path: Path) -> Iterator[duckdb.DuckDBPyConnection]:
     Yields:
         An in-memory connection holding the computed tag tables.
     """
-    csv_path = tmp_path / "best_sellers_output.csv"
+    csv_path = tmp_path / _DEFAULT_CSV_FILENAME
     _write_fixture_csv(csv_path)
     connection = duckdb.connect(":memory:")
     connection.execute(_load_compute_sql(csv_path))
@@ -224,7 +232,7 @@ class TestSegmentDump:
 
     def test_recompute_when_table_already_exists(self, tmp_path: Path) -> None:
         """A second compute run replaces ``segment_dump`` instead of erroring."""
-        csv_path = tmp_path / "best_sellers_output.csv"
+        csv_path = tmp_path / _DEFAULT_CSV_FILENAME
         _write_fixture_csv(csv_path)
         connection = duckdb.connect(":memory:")
         connection.execute(_load_compute_sql(csv_path))
@@ -236,7 +244,7 @@ class TestSegmentDump:
 
     def test_legacy_raw_object_does_not_block(self, tmp_path: Path) -> None:
         """A leftover ``raw`` VIEW or TABLE must not prevent compute."""
-        csv_path = tmp_path / "best_sellers_output.csv"
+        csv_path = tmp_path / _DEFAULT_CSV_FILENAME
         _write_fixture_csv(csv_path)
         connection = duckdb.connect(":memory:")
         connection.execute(

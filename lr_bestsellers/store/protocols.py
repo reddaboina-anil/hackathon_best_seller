@@ -6,8 +6,9 @@ Pydantic models — never bare dicts.
 
 ``CatalogRepositoryProtocol`` is the injection boundary for the offline segment
 catalog served by the API's browse branch. The production implementation wraps
-``csv_dump/best_sellers_output.csv`` (the ``best_sellers.sql`` export); unit
-tests use small fixture files or in-memory fakes.
+the enriched CSV export (``csv_dump/syndicated_segments_raw_enriched_data.csv``
+by default, controlled via ``CSV_FILENAME`` in ``.env``); unit tests use small
+fixture files or in-memory fakes.
 """
 
 from __future__ import annotations

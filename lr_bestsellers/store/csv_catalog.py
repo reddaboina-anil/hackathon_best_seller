@@ -1,8 +1,8 @@
-"""Read-only repository over the offline BigQuery CSV dump.
+"""Read-only repository over the enriched BigQuery CSV dump.
 
-The dump (``csv_dump/best_sellers_output.csv``) is a snapshot of
-``best_sellers.sql``. It is parsed once and kept in memory, so the first
-request pays the parse cost and every later request is a slice of a tuple.
+The dump (``csv_dump/syndicated_segments_raw_enriched_data.csv`` by default,
+configured via ``CSV_FILENAME`` in ``.env``) is parsed once and kept in memory,
+so the first request pays the parse cost and every later request is a slice of a tuple.
 
 Rows are returned in dump order, which BigQuery already sorted.
 """
@@ -44,7 +44,7 @@ class CsvCatalogRepository:
         csv_path: Path to the CSV dump.
 
     Example:
-        >>> repo = CsvCatalogRepository(Path("csv_dump/best_sellers_output.csv"))
+        >>> repo = CsvCatalogRepository(Path("csv_dump/syndicated_segments_raw_enriched_data.csv"))
         >>> page = repo.page(PageRequest(page=1, page_size=10))
         >>> len(page.items)
         10

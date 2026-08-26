@@ -27,8 +27,8 @@ from lr_bestsellers.utils.embeddings import EMBED_BATCH_SIZE
 
 log = structlog.get_logger(__name__)
 
-DEFAULT_CATALOG_CSV: Final[str] = "dms_segments_best_sellers.csv"
-"""Default BigQuery export filename placed in the repo root (cwd)."""
+DEFAULT_CATALOG_CSV: Final[str] = "syndicated_segments_raw_enriched_data.csv"
+"""Default enriched BigQuery export filename placed under ``csv_dump/``."""
 
 _REQUIRED_COLUMNS: Final[frozenset[str]] = frozenset(
     {

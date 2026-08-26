@@ -64,7 +64,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "For --source files: re-ingest a single knowledge_base markdown file. "
-            f"For --source csv: path to the CSV export (default: {DEFAULT_CATALOG_CSV})."
+            f"For --source csv: path to the CSV export (default: {DEFAULT_CATALOG_CSV} "
+            "in csv_dump/, or the value of Settings.catalog_ingest_csv)."
         ),
     )
     refresh.add_argument(
@@ -154,7 +155,7 @@ def build_sources(
         settings: Application settings.
         source: Source selector.
         only_file: For ``files``: single markdown file. For ``csv``: CSV path
-            override (defaults to ``DEFAULT_CATALOG_CSV`` in ``root``).
+            override (defaults to ``settings.catalog_ingest_csv``).
         root: Repository root (cwd when invoked via ``uv run``).
         skip_rows: For ``csv``: number of data rows to skip before embedding,
             used to resume an interrupted run.
@@ -167,9 +168,7 @@ def build_sources(
     selected: list[IngestionSourceProtocol] = []
 
     if source == "csv":
-        csv_path = (
-            Path(only_file) if only_file else root / DEFAULT_CATALOG_CSV
-        )
+        csv_path = Path(only_file) if only_file else settings.catalog_ingest_csv
         selected.append(CsvCatalogIngestionSource(csv_path, skip_rows=skip_rows))
         return selected
 

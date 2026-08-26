@@ -1,6 +1,8 @@
 -- Tag computation for the standalone tag-api.
 -- Executed by `docker compose --profile compute run --rm tag-compute`.
--- Input: tab-separated BigQuery export at /workspace/csv_dump/best_sellers_output.csv
+-- Input: enriched BigQuery export. The filename is read from the CSV_FILENAME
+--   environment variable (set in docker-compose from the host .env file).
+--   Fallback: syndicated_segments_raw_enriched_data.csv
 -- Output tables in tags.duckdb: segment_dump, tag_definitions, tagged,
 -- segment_tag_assignments, tag_segment_index, thresholds.
 
@@ -10,7 +12,7 @@
 -- This name has only ever been a table, so CREATE OR REPLACE TABLE is always safe.
 CREATE OR REPLACE TABLE segment_dump AS
 SELECT * FROM read_csv_auto(
-  '/workspace/csv_dump/best_sellers_output.csv',
+  '/workspace/csv_dump/' || COALESCE(getenv('CSV_FILENAME'), 'syndicated_segments_raw_enriched_data.csv'),
   header=true
 );
 

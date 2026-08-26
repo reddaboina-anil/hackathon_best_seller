@@ -74,7 +74,7 @@ def _split_platform_names(value: object) -> object:
 class SegmentRow(BaseModel):
     """One ``segment_dump`` row plus the tags assigned to that segment.
 
-    Known ``best_sellers.sql`` columns are modelled explicitly. Extra columns
+    Known enriched-export columns are modelled explicitly. Extra columns
     from a wider export are ignored so the contract stays stable.
 
     Attributes:
@@ -100,21 +100,37 @@ class SegmentRow(BaseModel):
         default_factory=list,
         description="Platforms the segment is currently distributed to.",
     )
+    buyers_with_usage: int | None = Field(None, description="Buyers with actual segment usage.")
+    platforms_with_usage: int | None = Field(
+        None, description="Platforms with actual segment usage."
+    )
+    impressions: float | None = Field(None, description="Total impression count.")
+    gross_data_revenue: float | None = Field(None, description="Gross data revenue.")
+    provider_net_revenue: float | None = Field(None, description="Provider net revenue.")
+    liveramp_net_revenue: float | None = Field(None, description="LiveRamp net revenue.")
     cookie_reach: int | float | None = Field(None, description="Estimated cookie reach.")
     ios_reach: int | float | None = Field(None, description="Estimated iOS device reach.")
     android_reach: int | float | None = Field(None, description="Estimated Android device reach.")
+    max_connect_reach: float | None = Field(None, description="Max Connect reach.")
     input_records: int | float | None = Field(None, description="Input record count.")
+    reach_by_platform: str | None = Field(None, description="Per-platform reach labels.")
     cookie_reach_updated_at: str | None = Field(None, description="Cookie reach as-of timestamp.")
     ios_reach_updated_at: str | None = Field(None, description="iOS reach as-of timestamp.")
     android_reach_updated_at: str | None = Field(None, description="Android reach as-of timestamp.")
-    reach_by_platform: str | None = Field(None, description="Per-platform reach labels.")
     distribution_rank: int | None = Field(None, description="Rank by distribution footprint.")
+    impressions_rank: int | None = Field(None, description="Rank by impressions.")
+    provider_revenue_rank: int | None = Field(None, description="Rank by provider revenue.")
+    buyer_usage_rank: int | None = Field(None, description="Rank by buyer usage.")
+    platform_usage_rank: int | None = Field(None, description="Rank by platform usage.")
     reach_rank: int | None = Field(None, description="Rank by reach.")
+    popularity_score: float | None = Field(None, description="Computed popularity score.")
+    popularity_rank: int | None = Field(None, description="Rank by popularity score.")
     is_highly_distributed: bool | None = Field(
         None, description="Top decile by destination accounts."
     )
+    is_highly_used: bool | None = Field(None, description="Top decile by usage.")
     is_highly_reachable: bool | None = Field(None, description="Top decile by reach.")
-    is_top_n_by_reach: bool | None = Field(None, description="Top-N by reach.")
+    is_top_n_popular: bool | None = Field(None, description="Top-N by popularity score.")
     tags: list[TagDefinition] = Field(
         default_factory=list,
         description="Tags assigned to this segment, ordered by priority.",
@@ -147,6 +163,51 @@ class SegmentRow(BaseModel):
             A list of platform names.
         """
         return _split_platform_names(value)
+
+    @field_validator(
+        "seller_customer_id",
+        "active_destination_accounts",
+        "active_buyers",
+        "active_platforms",
+        "buyers_with_usage",
+        "platforms_with_usage",
+        "impressions",
+        "gross_data_revenue",
+        "provider_net_revenue",
+        "liveramp_net_revenue",
+        "cookie_reach",
+        "ios_reach",
+        "android_reach",
+        "max_connect_reach",
+        "input_records",
+        "reach_by_platform",
+        "distribution_rank",
+        "impressions_rank",
+        "provider_revenue_rank",
+        "buyer_usage_rank",
+        "platform_usage_rank",
+        "reach_rank",
+        "popularity_score",
+        "popularity_rank",
+        "is_highly_distributed",
+        "is_highly_used",
+        "is_highly_reachable",
+        "is_top_n_popular",
+        mode="before",
+    )
+    @classmethod
+    def _blank_optional_is_null(cls, value: object) -> object:
+        """Normalise empty optional cells to ``None``.
+
+        Args:
+            value: Raw dump cell value.
+
+        Returns:
+            ``None`` for empty or whitespace-only strings, else ``value``.
+        """
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     @field_validator(
         "cookie_reach_updated_at",
