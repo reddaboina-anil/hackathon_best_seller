@@ -1,22 +1,27 @@
-"""The segments endpoint: one route, two branches.
+"""Route handlers for the ``/v1`` prefix.
 
-``GET /v1/segments`` behaves differently depending on whether ``query`` is
-supplied:
+Two existing branches on ``GET /v1/segments``:
 
-* ``query`` present → the question goes through the guarded RAG + Text2SQL
-  pipeline and the response is an :class:`AgentAnswer`.
-* ``query`` absent (or blank) → the CSV dump of the BigQuery features table is
-  paged directly and the response is a :class:`CatalogPage`.
+* ``query`` present → guarded RAG + Text2SQL pipeline → :class:`AgentAnswer`.
+* ``query`` absent → CSV catalog browse → :class:`CatalogPage`.
+
+New endpoints added here:
+
+* ``POST /v1/query`` → structured :class:`SegmentQueryResponse` with each
+  segment as a typed object (no markdown prose to parse).
+* ``GET /v1/health`` → lightweight liveness check.
 """
 
 from __future__ import annotations
 
+import time
 from typing import Annotated
 
 import structlog
 from fastapi import APIRouter, Depends, Header, Query
 
 from lr_bestsellers.api.dependencies import get_api_settings, get_catalog_repository
+from lr_bestsellers.api.response_builder import build_segment_query_response
 from lr_bestsellers.config import Settings
 from lr_bestsellers.models.catalog import (
     DEFAULT_PAGE_SIZE,
@@ -24,13 +29,20 @@ from lr_bestsellers.models.catalog import (
     AgentAnswer,
     CatalogPage,
     ErrorResponse,
+    HealthResponse,
     PageRequest,
     SegmentsResult,
+)
+from lr_bestsellers.models.query import (
+    QueryTextRequest,
+    SegmentQueryResponse,
 )
 from lr_bestsellers.service import answer_query
 from lr_bestsellers.store.protocols import CatalogRepositoryProtocol
 
 log = structlog.get_logger(__name__)
+
+_API_VERSION: str = "1.0.0"
 
 router = APIRouter(prefix="/v1", tags=["segments"])
 
@@ -108,3 +120,79 @@ def get_segments(
         query=question,
         result=answer_query(question, settings, caller_id),
     )
+
+
+@router.post(
+    "/query",
+    response_model=SegmentQueryResponse,
+    summary="Query segments — structured response",
+    response_description=(
+        "Each matched segment as a typed object with rank, name, description, "
+        "rank metrics, and platform lists. No markdown to parse."
+    ),
+    responses=_ERROR_RESPONSES,
+    tags=["query"],
+)
+def post_query(
+    body: QueryTextRequest,
+    settings: Annotated[Settings, Depends(get_api_settings)],
+) -> SegmentQueryResponse:
+    """Submit a plain-English question and receive machine-readable segment objects.
+
+    The pipeline is identical to the agent branch of ``GET /v1/segments``:
+    input guardrails → classify intent → hybrid search / Text2SQL → synthesize
+    → output guardrails.  The difference is in the response: instead of a prose
+    markdown string, each segment is returned as a typed ``SegmentResult`` with
+    explicit fields for name, ID, description, rank metrics, and platform lists.
+
+    The ``narrative`` field still carries the LLM-generated prose for UIs that
+    want to display a human-readable summary alongside the structured data.
+
+    Args:
+        body: Request body containing ``query`` and optional ``caller_id``.
+        settings: Injected application settings.
+
+    Returns:
+        ``SegmentQueryResponse`` with structured segment objects.
+
+    Raises:
+        InputGuardrailError: When input guardrails reject the query.
+        OutputGuardrailError: When output guardrails reject the answer.
+
+    Example:
+        POST /v1/query
+        {"query": "Frequent international travelers, business class preferred"}
+    """
+    log.info("api.query.start", caller_id=body.caller_id, query=body.query[:50])
+    t0 = time.monotonic()
+    raw = answer_query(body.query, settings, body.caller_id)
+    elapsed_ms = int((time.monotonic() - t0) * 1000)
+    log.info(
+        "api.query.complete",
+        intent=raw.intent,
+        confidence=raw.confidence,
+        sql_rows=len(raw.sql_results),
+        elapsed_ms=elapsed_ms,
+    )
+    return build_segment_query_response(body.query, raw, elapsed_ms)
+
+
+@router.get(
+    "/health",
+    response_model=HealthResponse,
+    summary="Liveness check",
+    response_description="``{\"status\": \"ok\"}`` when the process is healthy.",
+    tags=["ops"],
+)
+def get_health() -> HealthResponse:
+    """Return a simple liveness response.
+
+    This endpoint performs no I/O — it exists solely so load balancers and
+    container orchestrators can confirm the process is alive.  For a readiness
+    check that verifies downstream connectivity (Qdrant, BigQuery), extend this
+    handler or add a separate ``/readyz`` endpoint.
+
+    Returns:
+        ``HealthResponse`` with ``status="ok"`` and the current API version.
+    """
+    return HealthResponse(status="ok", version=_API_VERSION)

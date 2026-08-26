@@ -248,3 +248,19 @@ class ErrorResponse(BaseModel):
 
     error: str = Field(..., description="Machine-readable error code.")
     detail: str = Field(..., description="Human-readable explanation.")
+
+
+class HealthResponse(BaseModel):
+    """Response body for ``GET /v1/health``.
+
+    Attributes:
+        status: Always ``"ok"`` when the process is healthy.
+        version: API version string, e.g. ``"1.0.0"``.
+
+    Example:
+        >>> HealthResponse(status="ok", version="1.0.0")
+        HealthResponse(status='ok', version='1.0.0')
+    """
+
+    status: str = Field(..., description="Health status — 'ok' when the process is healthy.")
+    version: str = Field(..., description="API version string.")
