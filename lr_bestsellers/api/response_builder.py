@@ -47,13 +47,21 @@ _DESC_KEYS: frozenset[str] = frozenset(
     {"segment_description", "description", "desc", "segment_desc"}
 )
 _DIST_RANK_KEYS: frozenset[str] = frozenset({"distribution_rank", "dist_rank"})
-_IMP_RANK_KEYS: frozenset[str] = frozenset({"impressions_rank", "impression_rank"})
+_IMP_RANK_KEYS: frozenset[str] = frozenset(
+    # bestsellers_segments uses reach_rank; features CSV uses impressions_rank
+    {"reach_rank", "impressions_rank", "impression_rank"}
+)
 _PROV_REV_RANK_KEYS: frozenset[str] = frozenset(
+    # Not present in bestsellers_segments; only in the CSV features table
     {"provider_revenue_rank", "provider_rev_rank", "prov_rev_rank"}
 )
-_BUYER_RANK_KEYS: frozenset[str] = frozenset({"buyer_usage_rank", "buyer_rank"})
+_BUYER_RANK_KEYS: frozenset[str] = frozenset(
+    # bestsellers_segments exposes active_buyers (count); features CSV uses buyer_usage_rank
+    {"active_buyers", "buyer_usage_rank", "buyer_rank"}
+)
 _PLATFORM_RANK_KEYS: frozenset[str] = frozenset(
-    {"platform_usage_rank", "platform_rank"}
+    # bestsellers_segments exposes active_platforms (count); features CSV uses platform_usage_rank
+    {"active_platforms", "platform_usage_rank", "platform_rank"}
 )
 _PLATFORM_NAMES_KEYS: frozenset[str] = frozenset(
     {"active_platform_names", "platform_names", "platforms"}

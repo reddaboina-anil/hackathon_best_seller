@@ -38,6 +38,11 @@ Rules:
 - Query ONLY bestsellers_segments. Do not reference other tables, datasets,
   or fully-qualified names. Do not paste or rewrite best_sellers.sql.
 - Prefer a single SELECT against bestsellers_segments (filters, ORDER BY, LIMIT).
+- ALWAYS include these columns in every SELECT (they are required for the API response):
+    dms_segment_id, segment_name, segment_description,
+    active_platform_names, active_buyers, active_platforms,
+    distribution_rank, reach_rank
+  Add extra columns on top of these as the question requires.
 
 Available columns on bestsellers_segments:
   dms_segment_id, segment_name, segment_description, segment_type, seller_customer_id,
@@ -52,69 +57,89 @@ Platform filtering rules:
 
 Examples:
   -- Top segments by distribution rank
-  SELECT dms_segment_id, segment_name, active_platform_names, distribution_rank
+  SELECT dms_segment_id, segment_name, segment_description,
+         active_platform_names, active_buyers, active_platforms,
+         distribution_rank, reach_rank
   FROM bestsellers_segments
   ORDER BY distribution_rank ASC
   LIMIT 1000
 
   -- Top segments activated to The Trade Desk (canonical name known)
-  SELECT dms_segment_id, segment_name, active_platform_names, distribution_rank
+  SELECT dms_segment_id, segment_name, segment_description,
+         active_platform_names, active_buyers, active_platforms,
+         distribution_rank, reach_rank
   FROM bestsellers_segments
   WHERE LOWER(active_platform_names) LIKE '%the trade desk%'
   ORDER BY distribution_rank ASC
   LIMIT 1000
 
   -- Top segments activated to tradedesk (name not resolved, use REGEXP_REPLACE)
-  SELECT dms_segment_id, segment_name, active_platform_names, distribution_rank
+  SELECT dms_segment_id, segment_name, segment_description,
+         active_platform_names, active_buyers, active_platforms,
+         distribution_rank, reach_rank
   FROM bestsellers_segments
   WHERE REGEXP_REPLACE(LOWER(active_platform_names), r'[^a-z0-9]', '')
         LIKE CONCAT('%', REGEXP_REPLACE(LOWER('tradedesk'), r'[^a-z0-9]', ''), '%')
   ORDER BY distribution_rank ASC
   LIMIT 1000
 
-  -- Segments at popularity rank 12
-  SELECT dms_segment_id, segment_name, distribution_rank
+  -- Segments at a specific distribution rank
+  SELECT dms_segment_id, segment_name, segment_description,
+         active_platform_names, active_buyers, active_platforms,
+         distribution_rank, reach_rank
   FROM bestsellers_segments
   WHERE distribution_rank = 12
   LIMIT 1000
 
-  -- Top 10% by impressions (cookie reach)
-  SELECT dms_segment_id, segment_name, cookie_reach, reach_rank
+  -- Top 10% by cookie reach
+  SELECT dms_segment_id, segment_name, segment_description,
+         active_platform_names, active_buyers, active_platforms,
+         distribution_rank, reach_rank, cookie_reach
   FROM bestsellers_segments
   WHERE is_highly_reachable = TRUE
   ORDER BY reach_rank ASC
   LIMIT 1000
 
-  -- Top 10% by provider revenue (distribution)
-  SELECT dms_segment_id, segment_name, distribution_rank
+  -- Top 10% by distribution
+  SELECT dms_segment_id, segment_name, segment_description,
+         active_platform_names, active_buyers, active_platforms,
+         distribution_rank, reach_rank
   FROM bestsellers_segments
   WHERE is_highly_distributed = TRUE
   ORDER BY distribution_rank ASC
   LIMIT 1000
 
-  -- Active across 8 or more buyer platforms
-  SELECT dms_segment_id, segment_name, active_platforms
+  -- Active across 8 or more platforms
+  SELECT dms_segment_id, segment_name, segment_description,
+         active_platform_names, active_buyers, active_platforms,
+         distribution_rank, reach_rank
   FROM bestsellers_segments
   WHERE active_platforms >= 8
   ORDER BY active_platforms DESC
   LIMIT 1000
 
   -- Used by 23 or more buyers
-  SELECT dms_segment_id, segment_name, active_buyers
+  SELECT dms_segment_id, segment_name, segment_description,
+         active_platform_names, active_buyers, active_platforms,
+         distribution_rank, reach_rank
   FROM bestsellers_segments
   WHERE active_buyers >= 23
   ORDER BY active_buyers DESC
   LIMIT 1000
 
-  -- Compare reach and revenue for the top five
-  SELECT dms_segment_id, segment_name, cookie_reach, active_destination_accounts,
-         distribution_rank, reach_rank
+  -- Compare reach metrics for the top five
+  SELECT dms_segment_id, segment_name, segment_description,
+         active_platform_names, active_buyers, active_platforms,
+         distribution_rank, reach_rank,
+         cookie_reach, ios_reach, android_reach, active_destination_accounts
   FROM bestsellers_segments
   ORDER BY distribution_rank ASC
   LIMIT 5
 
   -- Exclude segments from a specific seller
-  SELECT dms_segment_id, segment_name, distribution_rank
+  SELECT dms_segment_id, segment_name, segment_description,
+         active_platform_names, active_buyers, active_platforms,
+         distribution_rank, reach_rank
   FROM bestsellers_segments
   WHERE seller_customer_id != '99999'
   ORDER BY distribution_rank ASC
